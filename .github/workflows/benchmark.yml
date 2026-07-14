@@ -1,0 +1,58 @@
+name: benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Benchmark mode
+        type: choice
+        options:
+          - full
+          - quick
+        default: full
+      storm_version:
+        description: Storm version to benchmark (defaults to the version in gradle/libs.versions.toml)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Override Storm version
+        if: inputs.storm_version != ''
+        run: |
+          sed -i 's/^storm = ".*"/storm = "${{ inputs.storm_version }}"/' gradle/libs.versions.toml
+          grep '^storm = ' gradle/libs.versions.toml
+
+      - name: Run benchmarks
+        run: |
+          if [ "${{ inputs.mode }}" = "quick" ]; then
+            scripts/run.sh --quick
+          else
+            scripts/run.sh
+          fi
+
+      - name: Publish job summary
+        run: cat results/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            results/*.json
+            results/summary.md

@@ -1,0 +1,168 @@
+package st.orm.benchmarks.hibernate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import org.hibernate.annotations.DynamicUpdate;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.SequenceGenerator;
+import jakarta.persistence.Table;
+
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * JPA entities following Hibernate's own recommendations: lazy associations
+ * everywhere and a sequence generator with a pooled optimizer for the insert
+ * workload, so JDBC batching stays enabled.
+ */
+public final class Entities {
+
+    @Entity(name = "City")
+    @Table(name = "city")
+    public static class City {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name = "name")
+        private String name;
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    @Entity(name = "Owner")
+    @Table(name = "owner")
+    @DynamicUpdate
+    public static class Owner {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name = "first_name")
+        private String firstName;
+
+        @Column(name = "last_name")
+        private String lastName;
+
+        @Column(name = "address")
+        private String address;
+
+        @Column(name = "telephone")
+        private String telephone;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "city_id")
+        private City city;
+
+        @OneToMany(mappedBy = "owner")
+        private List<Pet> pets;
+
+        public Long getId() {
+            return id;
+        }
+
+        public List<Pet> getPets() {
+            return pets;
+        }
+
+        public String getTelephone() {
+            return telephone;
+        }
+
+        public void setTelephone(String telephone) {
+            this.telephone = telephone;
+        }
+    }
+
+    @Entity(name = "PetType")
+    @Table(name = "pet_type")
+    public static class PetType {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name = "name")
+        private String name;
+
+        public Long getId() {
+            return id;
+        }
+    }
+
+    @Entity(name = "Pet")
+    @Table(name = "pet")
+    public static class Pet {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name = "name")
+        private String name;
+
+        @Column(name = "birth_date")
+        private LocalDate birthDate;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "type_id")
+        private PetType type;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "owner_id")
+        private Owner owner;
+
+        public Long getId() {
+            return id;
+        }
+    }
+
+    @Entity(name = "Visit")
+    @Table(name = "visit")
+    public static class Visit {
+        @Id
+        @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "visit_seq_gen")
+        @SequenceGenerator(name = "visit_seq_gen", sequenceName = "visit_seq", allocationSize = 50)
+        private Long id;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "pet_id")
+        private Pet pet;
+
+        @Column(name = "visit_date")
+        private LocalDate visitDate;
+
+        @Column(name = "description")
+        private String description;
+
+        protected Visit() {
+        }
+
+        public Visit(Pet pet, LocalDate visitDate, String description) {
+            this.pet = pet;
+            this.visitDate = visitDate;
+            this.description = description;
+        }
+
+        public Long getId() {
+            return id;
+        }
+    }
+
+    /** Row shape of the projection workload; instantiated by Hibernate from the query select list. */
+    public record PetRow(String petName, String ownerLastName, String cityName) {
+    }
+
+    private Entities() {
+    }
+}
