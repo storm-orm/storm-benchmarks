@@ -1,14 +1,17 @@
 package st.orm.benchmarks.exposeddao
 
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.dao.with
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -59,13 +62,14 @@ open class ExposedDaoBenchmark {
         Sanity.verify(
             singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(),
             projection(), batchInsert(), updateById(), objectGraph(),
+            keyset(), dynamic(), multiStatement(), graphInsert(),
         )
-        BenchDatabase.resetInsertedVisits(dataSource)
+        BenchDatabase.resetInsertedRows(dataSource)
     }
 
     @TearDown(Level.Iteration)
     fun resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource)
+        BenchDatabase.resetInsertedRows(dataSource)
     }
 
     @Benchmark
@@ -146,6 +150,83 @@ open class ExposedDaoBenchmark {
                     val owner = dao.toOwner()
                     OwnerWithPets(owner, dao.pets.map { it.toPet(owner) })
                 }
+        }
+    }
+
+    @Benchmark
+    fun keyset(): List<Pet> {
+        val cursor = params.nextKeysetCursor()
+        return transaction(database) {
+            PetDao.wrapRows(
+                Pets.selectAll()
+                    .where { Pets.id greater cursor }
+                    .orderBy(Pets.id to SortOrder.ASC)
+                    .limit(Dataset.PAGE_SIZE),
+            )
+                .with(PetDao::owner, OwnerDao::city)
+                .map { it.toPet() }
+        }
+    }
+
+    @Benchmark
+    fun dynamic(): List<PetRow> {
+        val filter = params.nextDynamicFilter()
+        return transaction(database) {
+            (Pets innerJoin Owners innerJoin Cities)
+                .select(Pets.name, Owners.lastName, Cities.name)
+                .where {
+                    var condition: Op<Boolean> = Owners.cityId eq EntityID(filter.cityId, Cities)
+                    if (filter.byDate) condition = condition and (Pets.birthDate greaterEq filter.minBirthDate)
+                    if (filter.byType) condition = condition and (Pets.typeId eq EntityID(filter.typeId, PetTypes))
+                    condition
+                }
+                .map { PetRow(it[Pets.name], it[Owners.lastName], it[Cities.name]) }
+        }
+    }
+
+    @Benchmark
+    fun multiStatement(): Long {
+        val pid = params.nextMultiPetId()
+        return transaction(database) {
+            val dao = VisitDao.new {
+                this.petId = EntityID(pid, Pets)
+                visitDate = Dataset.visitDate(pid.toInt())
+                description = Dataset.visitDescription(pid.toInt())
+            }
+            // Reading the generated id forces the pending insert to flush; the DAO is the entity in hand.
+            val id = dao.id.value
+            dao.description = dao.description + " (rechecked)"
+            id
+        }
+    }
+
+    @Benchmark
+    fun graphInsert(): List<Visit> {
+        val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
+        return transaction(database) {
+            val ownerIds = Owners.batchInsert(graphs, shouldReturnGeneratedValues = true) { graph ->
+                this[Owners.firstName] = Dataset.firstName(graph.seed)
+                this[Owners.lastName] = Dataset.lastName(graph.seed)
+                this[Owners.address] = Dataset.address(graph.seed)
+                this[Owners.telephone] = Dataset.telephone(graph.seed)
+                this[Owners.cityId] = EntityID(graph.cityId, Cities)
+            }.map { it[Owners.id].value }
+            val petIds = Pets.batchInsert(graphs.indices, shouldReturnGeneratedValues = true) { i ->
+                val graph = graphs[i]
+                this[Pets.name] = Dataset.petName(graph.seed)
+                this[Pets.birthDate] = Dataset.petBirthDate(graph.seed)
+                this[Pets.typeId] = EntityID(graph.typeId, PetTypes)
+                this[Pets.ownerId] = EntityID(ownerIds[i], Owners)
+            }.map { it[Pets.id].value }
+            Visits.batchInsert(graphs.indices, shouldReturnGeneratedValues = true) { i ->
+                val graph = graphs[i]
+                this[Visits.petId] = EntityID(petIds[i], Pets)
+                this[Visits.visitDate] = Dataset.visitDate(graph.seed)
+                this[Visits.description] = Dataset.visitDescription(graph.seed)
+            }.mapIndexed { i, row ->
+                val graph = graphs[i]
+                Visit(row[Visits.id].value, petIds[i], Dataset.visitDate(graph.seed), Dataset.visitDescription(graph.seed))
+            }
         }
     }
 

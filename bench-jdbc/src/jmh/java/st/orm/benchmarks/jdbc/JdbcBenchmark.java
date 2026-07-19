@@ -58,13 +58,13 @@ public class JdbcBenchmark {
         dataSource = BenchDatabase.dataSource();
         params = new Params();
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
-                batchInsert(), updateById(), objectGraph());
-        BenchDatabase.resetInsertedVisits(dataSource);
+                batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @TearDown(Level.Iteration)
     public void resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource);
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     /**
@@ -277,6 +277,179 @@ public class JdbcBenchmark {
                 owners.forEach((id, owner) -> result.add(new OwnerWithPets(owner, pets.get(id))));
                 return result;
             }
+        }
+    }
+
+    @Benchmark
+    public List<Pet> keyset() throws SQLException {
+        long cursor = params.nextKeysetCursor();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT p.id, p.name, p.birth_date, p.type_id,
+                            o.id, o.first_name, o.last_name, o.address, o.telephone,
+                            c.id, c.name
+                     FROM pet p
+                     JOIN owner o ON p.owner_id = o.id
+                     JOIN city c ON o.city_id = c.id
+                     WHERE p.id > ?
+                     ORDER BY p.id
+                     LIMIT ?""")) {
+            statement.setLong(1, cursor);
+            statement.setInt(2, Dataset.PAGE_SIZE);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                List<Pet> pets = new ArrayList<>(Dataset.PAGE_SIZE);
+                while (resultSet.next()) {
+                    pets.add(mapPet(resultSet));
+                }
+                return pets;
+            }
+        }
+    }
+
+    @Benchmark
+    public List<PetRow> dynamic() throws SQLException {
+        Params.DynamicFilter filter = params.nextDynamicFilter();
+        StringBuilder sql = new StringBuilder("""
+                SELECT p.name, o.last_name, c.name
+                FROM pet p
+                JOIN owner o ON p.owner_id = o.id
+                JOIN city c ON o.city_id = c.id
+                WHERE o.city_id = ?""");
+        if (filter.byDate()) {
+            sql.append(" AND p.birth_date >= ?");
+        }
+        if (filter.byType()) {
+            sql.append(" AND p.type_id = ?");
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            int index = 1;
+            statement.setLong(index++, filter.cityId());
+            if (filter.byDate()) {
+                statement.setObject(index++, filter.minBirthDate());
+            }
+            if (filter.byType()) {
+                statement.setLong(index, filter.typeId());
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                List<PetRow> rows = new ArrayList<>();
+                while (resultSet.next()) {
+                    rows.add(new PetRow(resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)));
+                }
+                return rows;
+            }
+        }
+    }
+
+    @Benchmark
+    public Long multiStatement() throws SQLException {
+        long petId = params.nextMultiPetId();
+        String description = Dataset.visitDescription((int) petId);
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                long id;
+                try (PreparedStatement insert = connection.prepareStatement(
+                        "INSERT INTO visit (pet_id, visit_date, description) VALUES (?, ?, ?)",
+                        Statement.RETURN_GENERATED_KEYS)) {
+                    insert.setLong(1, petId);
+                    insert.setObject(2, Dataset.visitDate((int) petId));
+                    insert.setString(3, description);
+                    insert.executeUpdate();
+                    try (ResultSet keys = insert.getGeneratedKeys()) {
+                        keys.next();
+                        id = keys.getLong(1);
+                    }
+                }
+                try (PreparedStatement update = connection.prepareStatement(
+                        "UPDATE visit SET description = ? WHERE id = ?")) {
+                    update.setString(1, description + " (rechecked)");
+                    update.setLong(2, id);
+                    update.executeUpdate();
+                }
+                connection.commit();
+                return id;
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Benchmark
+    public List<Visit> graphInsert() throws SQLException {
+        List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
+        for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
+            graphs.add(params.nextGraphInsert());
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                List<Long> ownerIds = batchInsertReturningKeys(connection,
+                        "INSERT INTO owner (first_name, last_name, address, telephone, city_id) VALUES (?, ?, ?, ?, ?)",
+                        graphs, (statement, index) -> {
+                            Params.GraphInsert graph = graphs.get(index);
+                            statement.setString(1, Dataset.firstName(graph.seed()));
+                            statement.setString(2, Dataset.lastName(graph.seed()));
+                            statement.setString(3, Dataset.address(graph.seed()));
+                            statement.setString(4, Dataset.telephone(graph.seed()));
+                            statement.setLong(5, graph.cityId());
+                        });
+                List<Long> petIds = batchInsertReturningKeys(connection,
+                        "INSERT INTO pet (name, birth_date, type_id, owner_id) VALUES (?, ?, ?, ?)",
+                        graphs, (statement, index) -> {
+                            Params.GraphInsert graph = graphs.get(index);
+                            statement.setString(1, Dataset.petName(graph.seed()));
+                            statement.setObject(2, Dataset.petBirthDate(graph.seed()));
+                            statement.setLong(3, graph.typeId());
+                            statement.setLong(4, ownerIds.get(index));
+                        });
+                List<Long> visitIds = batchInsertReturningKeys(connection,
+                        "INSERT INTO visit (pet_id, visit_date, description) VALUES (?, ?, ?)",
+                        graphs, (statement, index) -> {
+                            Params.GraphInsert graph = graphs.get(index);
+                            statement.setLong(1, petIds.get(index));
+                            statement.setObject(2, Dataset.visitDate(graph.seed()));
+                            statement.setString(3, Dataset.visitDescription(graph.seed()));
+                        });
+                connection.commit();
+                List<Visit> visits = new ArrayList<>(graphs.size());
+                for (int i = 0; i < graphs.size(); i++) {
+                    int seed = graphs.get(i).seed();
+                    visits.add(new Visit(visitIds.get(i), petIds.get(i),
+                            Dataset.visitDate(seed), Dataset.visitDescription(seed)));
+                }
+                return visits;
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    private interface RowBinder {
+        void bind(PreparedStatement statement, int index) throws SQLException;
+    }
+
+    private static List<Long> batchInsertReturningKeys(Connection connection, String sql,
+            List<?> items, RowBinder binder) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            for (int i = 0; i < items.size(); i++) {
+                binder.bind(statement, i);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            List<Long> ids = new ArrayList<>(items.size());
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                while (keys.next()) {
+                    ids.add(keys.getLong(1));
+                }
+            }
+            return ids;
         }
     }
 

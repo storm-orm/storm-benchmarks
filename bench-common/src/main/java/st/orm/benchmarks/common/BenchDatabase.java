@@ -101,13 +101,20 @@ public final class BenchDatabase {
         }
     }
 
-    /** Removes rows written by the batch-insert workload; runs untimed between iterations. */
-    public static void resetInsertedVisits(DataSource dataSource) {
+    /**
+     * Removes every row written by the write workloads (batch-insert, multi-statement, and graph-insert),
+     * restoring the seeded dataset; runs untimed between iterations. Inserted visits carry an id at or above the
+     * insert floor, while graph-inserted owners and pets carry ids above the seeded maxima. Deletion runs
+     * child-before-parent (visit, then pet, then owner) to respect the foreign keys.
+     */
+    public static void resetInsertedRows(DataSource dataSource) {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
             statement.executeUpdate("DELETE FROM visit WHERE id >= " + Dataset.INSERTED_ID_FLOOR);
+            statement.executeUpdate("DELETE FROM pet WHERE id > " + Dataset.PETS);
+            statement.executeUpdate("DELETE FROM owner WHERE id > " + Dataset.OWNERS);
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to reset visit table", e);
+            throw new IllegalStateException("Failed to reset inserted rows", e);
         }
     }
 

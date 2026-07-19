@@ -1,5 +1,6 @@
 package st.orm.benchmarks.hibernate;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import org.hibernate.annotations.DynamicUpdate;
@@ -14,6 +15,7 @@ import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -66,8 +68,19 @@ public final class Entities {
         @JoinColumn(name = "city_id")
         private City city;
 
-        @OneToMany(mappedBy = "owner")
-        private List<Pet> pets;
+        @OneToMany(mappedBy = "owner", cascade = CascadeType.PERSIST)
+        private List<Pet> pets = new ArrayList<>();
+
+        protected Owner() {
+        }
+
+        public Owner(String firstName, String lastName, String address, String telephone, City city) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.address = address;
+            this.telephone = telephone;
+            this.city = city;
+        }
 
         public Long getId() {
             return id;
@@ -122,8 +135,25 @@ public final class Entities {
         @JoinColumn(name = "owner_id")
         private Owner owner;
 
+        @OneToMany(mappedBy = "pet", cascade = CascadeType.PERSIST)
+        private List<Visit> visits = new ArrayList<>();
+
+        protected Pet() {
+        }
+
+        public Pet(String name, LocalDate birthDate, PetType type, Owner owner) {
+            this.name = name;
+            this.birthDate = birthDate;
+            this.type = type;
+            this.owner = owner;
+        }
+
         public Long getId() {
             return id;
+        }
+
+        public List<Visit> getVisits() {
+            return visits;
         }
     }
 
@@ -156,6 +186,14 @@ public final class Entities {
 
         public Long getId() {
             return id;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
         }
     }
 

@@ -14,6 +14,7 @@ LIBRARY_NAMES = {
     "bench-jooq": "jOOQ",
     "bench-exposed": "Exposed",
     "bench-exposed-dao": "Exposed DAO",
+    "bench-ktorm": "Ktorm",
     "bench-jimmer": "Jimmer",
 }
 
@@ -27,6 +28,10 @@ WORKLOAD_ORDER = [
     "batchInsert",
     "updateById",
     "objectGraph",
+    "keyset",
+    "dynamic",
+    "multiStatement",
+    "graphInsert",
 ]
 
 

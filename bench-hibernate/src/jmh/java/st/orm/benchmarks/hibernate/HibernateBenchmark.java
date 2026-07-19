@@ -21,9 +21,11 @@ import st.orm.benchmarks.common.BenchDatabase;
 import st.orm.benchmarks.common.Dataset;
 import st.orm.benchmarks.common.Params;
 import st.orm.benchmarks.common.Sanity;
+import st.orm.benchmarks.hibernate.Entities.City;
 import st.orm.benchmarks.hibernate.Entities.Owner;
 import st.orm.benchmarks.hibernate.Entities.Pet;
 import st.orm.benchmarks.hibernate.Entities.PetRow;
+import st.orm.benchmarks.hibernate.Entities.PetType;
 import st.orm.benchmarks.hibernate.Entities.Visit;
 
 import javax.sql.DataSource;
@@ -68,13 +70,13 @@ public class HibernateBenchmark {
                 .buildSessionFactory();
         params = new Params();
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
-                batchInsert(), updateById(), objectGraph());
-        BenchDatabase.resetInsertedVisits(dataSource);
+                batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @TearDown(Level.Iteration)
     public void resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource);
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @TearDown(Level.Trial)
@@ -165,5 +167,81 @@ public class HibernateBenchmark {
                         Owner.class)
                 .setParameter("cityId", cityId)
                 .getResultList());
+    }
+
+    @Benchmark
+    public List<Pet> keyset() {
+        long cursor = params.nextKeysetCursor();
+        return sessionFactory.fromSession(session -> session
+                .createSelectionQuery(
+                        "from Pet p join fetch p.owner o join fetch o.city where p.id > :cursor order by p.id",
+                        Pet.class)
+                .setParameter("cursor", cursor)
+                .setMaxResults(Dataset.PAGE_SIZE)
+                .getResultList());
+    }
+
+    @Benchmark
+    public List<PetRow> dynamic() {
+        Params.DynamicFilter filter = params.nextDynamicFilter();
+        StringBuilder hql = new StringBuilder(
+                "select p.name, o.lastName, c.name from Pet p join p.owner o join o.city c where o.city.id = :cityId");
+        if (filter.byDate()) {
+            hql.append(" and p.birthDate >= :minDate");
+        }
+        if (filter.byType()) {
+            hql.append(" and p.type.id = :typeId");
+        }
+        return sessionFactory.fromSession(session -> {
+            var query = session.createSelectionQuery(hql.toString(), PetRow.class)
+                    .setParameter("cityId", filter.cityId());
+            if (filter.byDate()) {
+                query.setParameter("minDate", filter.minBirthDate());
+            }
+            if (filter.byType()) {
+                query.setParameter("typeId", filter.typeId());
+            }
+            return query.getResultList();
+        });
+    }
+
+    @Benchmark
+    public Long multiStatement() {
+        long petId = params.nextMultiPetId();
+        return sessionFactory.fromTransaction(session -> {
+            Pet pet = session.getReference(Pet.class, petId);
+            Visit visit = new Visit(pet, Dataset.visitDate((int) petId), Dataset.visitDescription((int) petId));
+            session.persist(visit);
+            session.flush();
+            // The persisted instance is managed with its id assigned; amend it and let dirty checking flush.
+            visit.setDescription(visit.getDescription() + " (rechecked)");
+            return visit.getId();
+        });
+    }
+
+    @Benchmark
+    public List<Visit> graphInsert() {
+        List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
+        for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
+            graphs.add(params.nextGraphInsert());
+        }
+        return sessionFactory.fromTransaction(session -> {
+            List<Visit> visits = new ArrayList<>(graphs.size());
+            for (Params.GraphInsert graph : graphs) {
+                int seed = graph.seed();
+                Owner owner = new Owner(Dataset.firstName(seed), Dataset.lastName(seed), Dataset.address(seed),
+                        Dataset.telephone(seed), session.getReference(City.class, graph.cityId()));
+                Pet pet = new Pet(Dataset.petName(seed), Dataset.petBirthDate(seed),
+                        session.getReference(PetType.class, graph.typeId()), owner);
+                owner.getPets().add(pet);
+                Visit visit = new Visit(pet, Dataset.visitDate(seed), Dataset.visitDescription(seed));
+                pet.getVisits().add(visit);
+                // Cascade persist walks owner -> pets -> visits, ordering the inserts and batching by type.
+                session.persist(owner);
+                visits.add(visit);
+            }
+            session.flush();
+            return visits;
+        });
     }
 }

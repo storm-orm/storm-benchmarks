@@ -1,5 +1,6 @@
 package st.orm.benchmarks.jooq;
 
+import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Records;
 import org.jooq.SQLDialect;
@@ -29,6 +30,7 @@ import st.orm.benchmarks.common.model.Models.PetRow;
 import st.orm.benchmarks.common.model.Models.Visit;
 
 import javax.sql.DataSource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -64,13 +66,13 @@ public class JooqBenchmark {
         ctx = DSL.using(dataSource, SQLDialect.POSTGRES);
         params = new Params();
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
-                batchInsert(), updateById(), objectGraph());
-        BenchDatabase.resetInsertedVisits(dataSource);
+                batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @TearDown(Level.Iteration)
     public void resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource);
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @Benchmark
@@ -170,5 +172,98 @@ public class JooqBenchmark {
                             .map(pet -> new Pet(pet.value1(), pet.value2(), pet.value3(), pet.value4(), owner));
                     return new OwnerWithPets(owner, pets);
                 });
+    }
+
+    @Benchmark
+    public List<Pet> keyset() {
+        long cursor = params.nextKeysetCursor();
+        // jOOQ's native keyset pagination: ORDER BY .. SEEK(cursor) LIMIT.
+        return ctx.select(
+                        PET.ID, PET.NAME, PET.BIRTH_DATE, PET.TYPE_ID,
+                        row(OWNER.ID, OWNER.FIRST_NAME, OWNER.LAST_NAME, OWNER.ADDRESS, OWNER.TELEPHONE,
+                                row(CITY.ID, CITY.NAME).mapping(City::new)).mapping(Owner::new))
+                .from(PET)
+                .join(OWNER).on(PET.OWNER_ID.eq(OWNER.ID))
+                .join(CITY).on(OWNER.CITY_ID.eq(CITY.ID))
+                .orderBy(PET.ID)
+                .seek(cursor)
+                .limit(Dataset.PAGE_SIZE)
+                .fetch(Records.mapping(Pet::new));
+    }
+
+    @Benchmark
+    public List<PetRow> dynamic() {
+        Params.DynamicFilter filter = params.nextDynamicFilter();
+        Condition condition = OWNER.CITY_ID.eq(filter.cityId());
+        if (filter.byDate()) {
+            condition = condition.and(PET.BIRTH_DATE.ge(filter.minBirthDate()));
+        }
+        if (filter.byType()) {
+            condition = condition.and(PET.TYPE_ID.eq(filter.typeId()));
+        }
+        return ctx.select(PET.NAME, OWNER.LAST_NAME, CITY.NAME)
+                .from(PET)
+                .join(OWNER).on(PET.OWNER_ID.eq(OWNER.ID))
+                .join(CITY).on(OWNER.CITY_ID.eq(CITY.ID))
+                .where(condition)
+                .fetch(Records.mapping(PetRow::new));
+    }
+
+    @Benchmark
+    public Long multiStatement() {
+        long petId = params.nextMultiPetId();
+        String description = Dataset.visitDescription((int) petId);
+        return ctx.transactionResult(transaction -> {
+            DSLContext c = DSL.using(transaction);
+            Long id = c.insertInto(VISIT, VISIT.PET_ID, VISIT.VISIT_DATE, VISIT.DESCRIPTION)
+                    .values(petId, Dataset.visitDate((int) petId), description)
+                    .returning(VISIT.ID)
+                    .fetchOne()
+                    .getId();
+            c.update(VISIT)
+                    .set(VISIT.DESCRIPTION, description + " (rechecked)")
+                    .where(VISIT.ID.eq(id))
+                    .execute();
+            return id;
+        });
+    }
+
+    @Benchmark
+    public List<Visit> graphInsert() {
+        List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
+        for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
+            graphs.add(params.nextGraphInsert());
+        }
+        return ctx.transactionResult(transaction -> {
+            DSLContext c = DSL.using(transaction);
+            var ownerInsert = c.insertInto(OWNER,
+                    OWNER.FIRST_NAME, OWNER.LAST_NAME, OWNER.ADDRESS, OWNER.TELEPHONE, OWNER.CITY_ID);
+            for (Params.GraphInsert graph : graphs) {
+                ownerInsert = ownerInsert.values(Dataset.firstName(graph.seed()), Dataset.lastName(graph.seed()),
+                        Dataset.address(graph.seed()), Dataset.telephone(graph.seed()), graph.cityId());
+            }
+            List<Long> ownerIds = ownerInsert.returning(OWNER.ID).fetch().map(record -> record.get(OWNER.ID));
+            var petInsert = c.insertInto(PET, PET.NAME, PET.BIRTH_DATE, PET.TYPE_ID, PET.OWNER_ID);
+            for (int i = 0; i < graphs.size(); i++) {
+                Params.GraphInsert graph = graphs.get(i);
+                petInsert = petInsert.values(Dataset.petName(graph.seed()), Dataset.petBirthDate(graph.seed()),
+                        graph.typeId(), ownerIds.get(i));
+            }
+            List<Long> petIds = petInsert.returning(PET.ID).fetch().map(record -> record.get(PET.ID));
+            var visitInsert = c.insertInto(VISIT, VISIT.PET_ID, VISIT.VISIT_DATE, VISIT.DESCRIPTION);
+            for (int i = 0; i < graphs.size(); i++) {
+                Params.GraphInsert graph = graphs.get(i);
+                visitInsert = visitInsert.values(petIds.get(i), Dataset.visitDate(graph.seed()),
+                        Dataset.visitDescription(graph.seed()));
+            }
+            List<Long> visitIds = visitInsert.returning(VISIT.ID).fetch().map(record -> record.get(VISIT.ID));
+            List<Visit> visits = new ArrayList<>(graphs.size());
+            for (int i = 0; i < graphs.size(); i++) {
+                int seed = graphs.get(i).seed();
+                visits.add(new Visit(visitIds.get(i), petIds.get(i),
+                        Dataset.visitDate(seed), Dataset.visitDescription(seed)));
+            }
+            return visits;
+        });
     }
 }

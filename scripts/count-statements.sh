@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MODULES=(bench-jdbc bench-storm bench-hibernate bench-jooq bench-exposed bench-exposed-dao bench-jimmer)
+MODULES=(bench-jdbc bench-storm bench-hibernate bench-jooq bench-exposed bench-exposed-dao bench-ktorm bench-jimmer)
 if [[ $# -gt 0 ]]; then
     MODULES=("$@")
 fi

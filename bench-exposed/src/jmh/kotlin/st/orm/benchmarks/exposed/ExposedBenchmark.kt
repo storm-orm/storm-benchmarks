@@ -1,13 +1,16 @@
 package st.orm.benchmarks.exposed
 
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.innerJoin
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.batchInsert
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -57,13 +60,14 @@ open class ExposedBenchmark {
         Sanity.verify(
             singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(),
             projection(), batchInsert(), updateById(), objectGraph(),
+            keyset(), dynamic(), multiStatement(), graphInsert(),
         )
-        BenchDatabase.resetInsertedVisits(dataSource)
+        BenchDatabase.resetInsertedRows(dataSource)
     }
 
     @TearDown(Level.Iteration)
     fun resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource)
+        BenchDatabase.resetInsertedRows(dataSource)
     }
 
     @Benchmark
@@ -136,6 +140,82 @@ open class ExposedBenchmark {
                 .where { Owners.cityId eq cityId }
                 .orderBy(Owners.id)
                 .groupIntoOwners()
+        }
+    }
+
+    @Benchmark
+    fun keyset(): List<Pet> {
+        val cursor = params.nextKeysetCursor()
+        return transaction(database) {
+            (Pets innerJoin Owners innerJoin Cities)
+                .selectAll()
+                .where { Pets.id greater cursor }
+                .orderBy(Pets.id)
+                .limit(Dataset.PAGE_SIZE)
+                .map { it.toPet() }
+        }
+    }
+
+    @Benchmark
+    fun dynamic(): List<PetRow> {
+        val filter = params.nextDynamicFilter()
+        return transaction(database) {
+            (Pets innerJoin Owners innerJoin Cities)
+                .select(Pets.name, Owners.lastName, Cities.name)
+                .where {
+                    var condition: Op<Boolean> = Owners.cityId eq filter.cityId
+                    if (filter.byDate) condition = condition and (Pets.birthDate greaterEq filter.minBirthDate)
+                    if (filter.byType) condition = condition and (Pets.typeId eq filter.typeId)
+                    condition
+                }
+                .map { PetRow(it[Pets.name], it[Owners.lastName], it[Cities.name]) }
+        }
+    }
+
+    @Benchmark
+    fun multiStatement(): Long {
+        val petId = params.nextMultiPetId()
+        return transaction(database) {
+            // The insert result carries the generated id and the inserted row, so no separate read-back.
+            val inserted = Visits.insert {
+                it[Visits.petId] = petId
+                it[Visits.visitDate] = Dataset.visitDate(petId.toInt())
+                it[Visits.description] = Dataset.visitDescription(petId.toInt())
+            }
+            val id = inserted[Visits.id]
+            val description = inserted[Visits.description]
+            Visits.update({ Visits.id eq id }) { it[Visits.description] = "$description (rechecked)" }
+            id
+        }
+    }
+
+    @Benchmark
+    fun graphInsert(): List<Visit> {
+        val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
+        return transaction(database) {
+            val ownerIds = Owners.batchInsert(graphs, shouldReturnGeneratedValues = true) { graph ->
+                this[Owners.firstName] = Dataset.firstName(graph.seed)
+                this[Owners.lastName] = Dataset.lastName(graph.seed)
+                this[Owners.address] = Dataset.address(graph.seed)
+                this[Owners.telephone] = Dataset.telephone(graph.seed)
+                this[Owners.cityId] = graph.cityId
+            }.map { it[Owners.id] }
+            val petIds = Pets.batchInsert(graphs.indices, shouldReturnGeneratedValues = true) { i ->
+                val graph = graphs[i]
+                this[Pets.name] = Dataset.petName(graph.seed)
+                this[Pets.birthDate] = Dataset.petBirthDate(graph.seed)
+                this[Pets.typeId] = graph.typeId
+                this[Pets.ownerId] = ownerIds[i]
+            }.map { it[Pets.id] }
+            Visits.batchInsert(graphs.indices, shouldReturnGeneratedValues = true) { i ->
+                val graph = graphs[i]
+                this[Visits.petId] = petIds[i]
+                this[Visits.visitDate] = Dataset.visitDate(graph.seed)
+                this[Visits.description] = Dataset.visitDescription(graph.seed)
+            }.mapIndexed { i, row ->
+                val graph = graphs[i]
+                Visit(row[Visits.id], petIds[i], Dataset.visitDate(graph.seed), Dataset.visitDescription(graph.seed))
+            }
         }
     }
 

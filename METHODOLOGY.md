@@ -25,6 +25,7 @@ are not transferable to other workloads; they compare libraries under identical 
 | jOOQ | Java | Generated classes, type-safe DSL |
 | Exposed | Kotlin | SQL DSL mapped to data classes |
 | Exposed DAO | Kotlin | DAO entities (entity cache, lazy references, `with(...)` eager loading) |
+| Ktorm | Kotlin | Entity sequence API with reference bindings, SQL DSL for projections |
 | Jimmer | Java | Entity interfaces, object fetchers |
 
 Exposed appears twice because its two APIs have different performance characteristics and
@@ -32,11 +33,18 @@ both are in wide use: the SQL DSL maps rows directly, while the DAO layer adds a
 cache and lazy references. The DAO module drops to the DSL for the projection workload,
 as DAO applications do.
 
-Storm and Exposed are benchmarked through their Kotlin APIs, which are their primary
+Storm, Exposed, and Ktorm are benchmarked through their Kotlin APIs, which are their primary
 interfaces. Storm's Java API currently requires the String Templates preview feature and is
 not part of the suite; it can be added once the feature stabilizes. The measured work is
 dominated by JDBC interaction and mapping, which both languages drive through the same
 runtime.
+
+Ktorm is benchmarked through its entity sequence API, its recommended interface for entity
+work: reference bindings drive the join and nested materialization for the read workloads,
+and it drops to the SQL DSL for the flat projection, as its documentation shows. Ktorm's
+native `batchInsert` returns affected-row counts rather than generated keys, and Ktorm has no
+batch path that returns them, so its batch-insert workload alone does not retrieve the inserted
+ids; see below.
 
 Exact dependency versions are pinned in `gradle/libs.versions.toml`.
 
@@ -111,7 +119,8 @@ Fetch one `visit` row by primary key. The `pet` foreign key stays a reference (l
 Fetch a window of 10, 100, or 1000 consecutive pets (by id range) with owner and city fully materialized
 (3-table join). The three sizes separate per-query fixed cost from per-row mapping cost: the 10-row score is
 dominated by query overhead, the 1000-row score by materialization, and the slope between them is each
-library's mapping cost per row. Storm, Hibernate, jOOQ, Exposed (DSL), and JDBC execute 1 join query. Jimmer
+library's mapping cost per row. Storm, Hibernate, jOOQ, Exposed (DSL), Ktorm, and JDBC execute 1 join query
+(Ktorm's reference bindings emit left joins, equivalent here since every foreign key is non-null). Jimmer
 and Exposed DAO follow their fetcher/eager-loading models: 1 main query plus batched association queries.
 
 ### projection
@@ -122,7 +131,8 @@ mapped into a flat row type. 1 query per operation for every library. The delta 
 
 ### batchInsert
 
-Insert 100 `visit` rows; generated keys must be available afterwards. Each library uses
+Insert 100 `visit` rows; every library that can return generated keys from a batch does so
+(all but Ktorm; see below). Each library uses
 its idiomatic batching mechanism, and every implementation runs inside an explicit
 transaction: JDBC and Exposed use `executeBatch` with generated keys, Exposed DAO creates
 entities whose pending inserts flush as a batch, Hibernate persists with a sequence-backed
@@ -130,8 +140,15 @@ id and JDBC batching, Storm runs its repository batch insert inside the ambient
 `transaction { }`, jOOQ issues a single multi-row `INSERT .. RETURNING`, and Jimmer runs
 its save command. Note that jOOQ's multi-row statement covers the 100-row batch in one
 statement; larger batches would chunk into multiple statements within the same transaction
-(PostgreSQL caps bind parameters at 65,535 per statement). Inserted rows are deleted in
-an untimed teardown between iterations.
+(PostgreSQL caps bind parameters at 65,535 per statement). Ktorm uses its native `batchInsert`,
+one JDBC batch inside the transaction, but its result shape differs from the rest: Ktorm's
+`batchInsert` returns affected-row counts, not generated keys, and the library offers no batch
+path that returns them, so this is the one workload where Ktorm does not retrieve the inserted
+ids. Retrieving them would require `insertAndGenerateKey` per row (one round trip per row); the
+suite uses the native batch instead, so Ktorm's number reflects its batching rather than the
+absence of batch key retrieval. When generated keys after a batch are a requirement, that gap
+is itself the relevant result. Inserted rows are
+deleted in an untimed teardown between iterations.
 
 ### updateById
 
@@ -143,15 +160,18 @@ second fork into a read-only benchmark for those libraries.
 
 Every implementation writes only the changed column: Storm and Hibernate annotate the owner entity with their
 respective `@DynamicUpdate` options (the documented setting for write-heavy entities), jOOQ's
-`UpdatableRecord.store()` and Exposed DAO's flush track changed fields, Jimmer saves only the draft-modified
-properties, and the JDBC and Exposed (DSL) implementations update the single column explicitly. This workload exercises each library's change
+`UpdatableRecord.store()`, Exposed DAO's flush, and Ktorm's `flushChanges()` track changed fields, Jimmer saves
+only the draft-modified properties, and the JDBC and Exposed (DSL) implementations update the single column
+explicitly. This workload exercises each library's change
 detection: Hibernate flushes via snapshot-based dirty checking, jOOQ's `UpdatableRecord.store()` updates
-changed fields, Exposed DAO flushes tracked field writes at commit, Jimmer saves a draft-produced copy with
-`UPDATE_ONLY`, Storm updates an immutable copy through its repository, Exposed (DSL) and JDBC issue an
-explicit UPDATE after the read. Every implementation reads the owner in a lazy-association shape: the JPA-style
-libraries declare `FetchType.LAZY` (or are lazy by design), and Storm expresses the same fetch decision with a
+changed fields, Exposed DAO flushes tracked field writes at commit, Ktorm's `flushChanges()` writes only the
+properties modified on the entity, Jimmer saves a draft-produced copy with `UPDATE_ONLY`, Storm updates an
+immutable copy through its repository, Exposed (DSL) and JDBC issue an explicit UPDATE after the read. Every
+implementation reads the owner in a lazy-association shape: the JPA-style
+libraries declare `FetchType.LAZY` (or are lazy by design), Storm expresses the same fetch decision with a
 dedicated record mapping the owner table whose city is a `Ref` foreign key, its equivalent of a lazy
-association. Storm's eager aggregate shape, which joins the city on every read, is exercised by the read
+association, and Ktorm reads the owner with `withReferences = false` so the city reference is not joined.
+Storm's eager aggregate shape, which joins the city on every read, is exercised by the read
 workloads instead.
 
 ### objectGraph
@@ -159,10 +179,71 @@ workloads instead.
 Load the 50 owners of one city, each with their list of pets (an N+1-prone shape). Every
 library uses its recommended efficient strategy: Hibernate `join fetch` on the collection,
 jOOQ `MULTISET`, Jimmer a fetcher with a batched list association, Exposed DAO `with(...)`
-eager loading (2 queries), and JDBC, Exposed (DSL), and Storm one join grouped in memory
-(Storm selects the owner-pet row pair through its eagerly mapped graph in a single query).
+eager loading (2 queries), and JDBC, Exposed (DSL), Ktorm, and Storm one join grouped in memory
+(Storm selects the owner-pet row pair through its eagerly mapped graph in a single query;
+Ktorm queries the pet side joined to owner and city and groups by owner, as its docs show for
+one-to-many, which it does not model as an entity property).
 This workload compares each library's sanctioned answer to the N+1 problem, not a naive
 lazy loop.
+
+### keyset
+
+Fetch one page of `PAGE_SIZE` (20) pets by keyset (seek) pagination: `WHERE id > cursor
+ORDER BY id LIMIT 20`, with owner and city materialized (the same 3-table graph as
+`joinWithMapping`). Keyset paging is the performant alternative to offset paging, which is why
+this variant is measured: the cursor moves through the id space with no `OFFSET` scan cost, so
+the page fetch stays flat regardless of how deep into the list it is. Each library uses its
+keyset idiom: Storm its `scroll(Scrollable.of(...))` cursor API (its recommended scroll form,
+as opposed to page/offset paging), jOOQ its native `ORDER BY ... SEEK(cursor) LIMIT`, and JDBC,
+Hibernate, Exposed, Exposed DAO, Ktorm, and Jimmer an explicit `WHERE id > cursor ORDER BY id
+LIMIT 20`. 1 query per operation for every library except Exposed DAO and Jimmer, which add
+their batched association queries. The cursor cycles so successive pages walk the id space.
+
+### dynamic
+
+A filtered pet search whose predicate set is built at runtime. A city equality is always
+applied (bounding the result to one city's pets), and a `birth_date >=` range and a `type_id =`
+equality are toggled on and off across a four-way cycle, so the SQL text and bind-parameter
+list differ from call to call. This measures query-construction cost with runtime-variable
+predicates, the shape of a search form or filter panel: JDBC and Hibernate assemble the
+statement text conditionally, jOOQ composes a `Condition`, Storm composes a `PredicateBuilder`,
+Exposed and Exposed DAO build an `Op<Boolean>`, Ktorm reduces a condition list, and Jimmer
+relies on its null-predicate-ignoring `where()`. 1 query per operation for every library. The
+result is a flat projection (`pet.name`, `owner.last_name`, `city.name`). The sanity check
+always sees the first combination (city only), so its row count is a stable
+`PETS_PER_CITY`; the measured calls average over the whole cycle.
+
+### multiStatement
+
+One transactional unit of work with a data dependency between statements: insert a `visit`,
+obtain the persisted entity, then update its description, all inside one transaction. This is
+the shape of a create-then-amend endpoint, and each library obtains the just-inserted row its
+natural way: Hibernate and the entity/DAO libraries (Exposed DAO, Ktorm, Jimmer, Storm) get the
+persisted entity back from the insert (a managed instance, a populated draft, `insertAndFetch`,
+or an entity `add`) and let dirty tracking or an explicit update flush the change; jOOQ inserts
+with `RETURNING` and stores the changed record; and JDBC and Exposed (DSL) read the generated id
+and inserted values out of the insert result. So the workload is two statements (insert, update),
+with no separate read-back. Every implementation runs in an explicit transaction, and the
+inserted rows are removed in the untimed teardown between iterations, like `batchInsert`.
+
+### graphInsert
+
+Write a batch of 20 fresh `owner` → `pet` → `visit` graphs in one transaction, each owner in an
+existing city and each pet an existing type. The foreign keys force an insertion order (owners
+before pets before visits) and require the generated parent keys to reach the children, so the
+workload measures how a library handles dependency-ordered bulk writes with key propagation, and
+whether the ordering is the ORM's job or the caller's. Storm and Hibernate let the ORM do it:
+Storm passes only the visits to `writeSet().insertAndFetch(...)`, whose insertion closure
+discovers the unsaved pets and owners through the visits' refs and writes one batch per type per
+dependency level; Hibernate builds the object graph and `persist`s each owner root, letting
+cascade persist plus `ORDER_INSERTS` order and batch the inserts. The others order it in the
+benchmark: JDBC uses three `executeBatch` levels with `getGeneratedKeys`, jOOQ three multi-row
+`INSERT ... RETURNING`, Exposed and Exposed DAO three `batchInsert`s, and Jimmer three
+`saveEntities` commands, each threading the returned parent ids into the next level. Ktorm is the
+exception, having no batch insert that returns keys: it inserts owners and pets row by row to
+thread the ids, then adds the visits. Every implementation returns the persisted visits and runs
+in an explicit transaction; the inserted owners, pets, and visits are removed in the untimed
+teardown between iterations.
 
 ## Statement auditing
 

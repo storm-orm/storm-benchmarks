@@ -1,6 +1,8 @@
 package st.orm.benchmarks.jimmer;
 
 import org.babyfish.jimmer.sql.Entity;
+import org.babyfish.jimmer.sql.GeneratedValue;
+import org.babyfish.jimmer.sql.GenerationType;
 import org.babyfish.jimmer.sql.Id;
 import org.babyfish.jimmer.sql.JoinColumn;
 import org.babyfish.jimmer.sql.ManyToOne;
@@ -13,6 +15,7 @@ import java.time.LocalDate;
 public interface Pet {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     long id();
 
     String name();

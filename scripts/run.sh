@@ -16,7 +16,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MODULES=(bench-jdbc bench-storm bench-hibernate bench-jooq bench-exposed bench-exposed-dao bench-jimmer)
+MODULES=(bench-jdbc bench-storm bench-hibernate bench-jooq bench-exposed bench-exposed-dao bench-ktorm bench-jimmer)
 # Plain string, not an array: empty arrays trip `set -u` on macOS's bash 3.2.
 GRADLE_FLAGS=""
 while [[ $# -gt 0 ]]; do
