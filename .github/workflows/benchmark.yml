@@ -10,8 +10,16 @@ on:
           - full
           - quick
         default: full
+      runner:
+        description: GitHub-hosted runner label (default ubuntu-latest; use a larger-runner label for steadier numbers)
+        type: string
+        default: ubuntu-latest
+      storm_ref:
+        description: storm-framework ref (branch, tag, or sha) to build and benchmark
+        type: string
+        default: main
       storm_version:
-        description: Storm version to benchmark (defaults to the version in gradle/libs.versions.toml)
+        description: Storm version to resolve (defaults to the version in gradle/libs.versions.toml)
         type: string
         required: false
 
@@ -20,8 +28,8 @@ permissions:
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
 
@@ -37,6 +45,29 @@ jobs:
         run: |
           sed -i 's/^storm = ".*"/storm = "${{ inputs.storm_version }}"/' gradle/libs.versions.toml
           grep '^storm = ' gradle/libs.versions.toml
+
+      - name: Resolve Storm version
+        id: storm
+        run: echo "version=$(sed -n 's/^storm = "\(.*\)"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      # Storm is not yet on Maven Central, so build it from source into the local Maven repository. This also lets
+      # the suite benchmark any unreleased storm-framework ref, not only published versions.
+      - name: Checkout storm-framework
+        uses: actions/checkout@v4
+        with:
+          repository: storm-orm/storm-framework
+          ref: ${{ inputs.storm_ref }}
+          path: storm-framework
+
+      - name: Build Storm into the local Maven repository
+        working-directory: storm-framework
+        run: ./mvnw -B -ntp -DskipTests -Dmaven.javadoc.skip=true install -Drevision=${{ steps.storm.outputs.version }}
+
+      # The st.orm Gradle plugin is a standalone Gradle build, not part of the Maven reactor, so publish it to
+      # the local Maven repository separately (mirroring -Drevision with -Pversion).
+      - name: Publish the Storm Gradle plugin into the local Maven repository
+        working-directory: storm-framework/storm-gradle-plugin
+        run: ./gradlew --no-daemon publishToMavenLocal -Pversion=${{ steps.storm.outputs.version }}
 
       - name: Run benchmarks
         run: |
