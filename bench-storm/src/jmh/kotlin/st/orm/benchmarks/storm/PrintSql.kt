@@ -3,6 +3,7 @@ package st.orm.benchmarks.storm
 import st.orm.benchmarks.common.BenchDatabase
 import st.orm.benchmarks.common.Dataset
 import st.orm.benchmarks.common.Params
+import st.orm.Scrollable
 import st.orm.core.template.SqlInterceptor
 import st.orm.template.ORMTemplate
 import st.orm.template.PredicateBuilder
@@ -76,6 +77,10 @@ fun main() {
             .orderBy(Pet_.owner)
             .resultGroupedBy(Pet_.owner)
             .map { (owner, ownerPets) -> OwnerWithPets(owner, ownerPets) }
+    }
+
+    show("keyset") {
+        pets.scroll(Scrollable.of(Pet_.id, 100L, Dataset.PAGE_SIZE)).content
     }
 
     show("dynamic (city + date + type)") {

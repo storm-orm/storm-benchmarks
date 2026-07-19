@@ -283,6 +283,8 @@ public class JdbcBenchmark {
     @Benchmark
     public List<Pet> keyset() throws SQLException {
         long cursor = params.nextKeysetCursor();
+        // Page size is inlined as a literal, not bound: a literal LIMIT lets the planner pick an early-terminating
+        // plan for the small page, where a bound LIMIT forces a slower generic plan. PAGE_SIZE is a trusted constant.
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      SELECT p.id, p.name, p.birth_date, p.type_id,
@@ -293,9 +295,8 @@ public class JdbcBenchmark {
                      JOIN city c ON o.city_id = c.id
                      WHERE p.id > ?
                      ORDER BY p.id
-                     LIMIT ?""")) {
+                     LIMIT %d""".formatted(Dataset.PAGE_SIZE))) {
             statement.setLong(1, cursor);
-            statement.setInt(2, Dataset.PAGE_SIZE);
             try (ResultSet resultSet = statement.executeQuery()) {
                 List<Pet> pets = new ArrayList<>(Dataset.PAGE_SIZE);
                 while (resultSet.next()) {
