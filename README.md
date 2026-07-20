@@ -47,9 +47,14 @@ Dependency versions are pinned in [`gradle/libs.versions.toml`](gradle/libs.vers
 
 ## Results
 
-Per-release results are produced by the `benchmark` GitHub Actions workflow and published
-with the release notes, including runner type and exact versions. No numbers are committed
-to this repository; run the suite to produce your own.
+Committed runs live in [`results/`](results/): each is a dated directory with the merged table,
+the raw per-library JMH JSON, and a metadata file recording the exact versions, runner, and JMH
+configuration. [`results/summary.md`](results/summary.md) mirrors the latest run. The `benchmark`
+GitHub Actions workflow reproduces a run on a pinned runner; run `scripts/run.sh` to produce your
+own.
+
+Read a score relative to the JDBC baseline within the same table. Absolute numbers depend on the
+runner instance, so they are not comparable across runs.
 
 ## Contributing
 
