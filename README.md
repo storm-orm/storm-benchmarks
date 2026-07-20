@@ -1,9 +1,13 @@
 # storm-benchmarks
 
 Reproducible benchmark suite comparing [Storm](https://github.com/storm-orm/storm-framework)
-against plain JDBC, Hibernate ORM, jOOQ, Exposed, Ktorm, and Jimmer on realistic PostgreSQL
-workloads. JMH with Testcontainers; identical schema, data, driver, and connection pool for
-every library.
+against plain JDBC, Hibernate ORM, jOOQ, Exposed (DSL and DAO), Ktorm, and Jimmer on realistic
+PostgreSQL workloads. JMH with Testcontainers; identical schema, data, driver, and connection
+pool for every library.
+
+The plain-JDBC column is a hand-written baseline that uses the same technique as the fastest
+ORM on each workload, so a library's score minus the baseline reads as its overhead rather than
+a difference in approach.
 
 See [METHODOLOGY.md](METHODOLOGY.md) for what is measured, the fairness rules, and how to
 interpret results.

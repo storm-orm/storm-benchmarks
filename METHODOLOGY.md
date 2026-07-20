@@ -132,13 +132,17 @@ mapped into a flat row type. 1 query per operation for every library. The delta 
 ### batchInsert
 
 Insert 100 `visit` rows; every library that can return generated keys from a batch does so
-(all but Ktorm; see below). Each library uses
-its idiomatic batching mechanism, and every implementation runs inside an explicit
-transaction: JDBC and Exposed use `executeBatch` with generated keys, Exposed DAO creates
-entities whose pending inserts flush as a batch, Hibernate persists with a sequence-backed
-id and JDBC batching, Storm runs its repository batch insert inside the ambient
-`transaction { }`, jOOQ issues a single multi-row `INSERT .. RETURNING`, and Jimmer runs
-its save command. Note that jOOQ's multi-row statement covers the 100-row batch in one
+(all but Ktorm; see below). Every implementation runs inside an explicit transaction. The
+JDBC baseline issues a single multi-row `INSERT INTO visit (...) VALUES (...),(...) RETURNING`
+and reads the keys from the result set: the same technique the fastest ORMs use, so the
+baseline reads as the raw floor for the workload rather than a naive per-row batch. (This is
+also why the baseline is not `executeBatch` with `RETURN_GENERATED_KEYS`: pgjdbc disables
+`reWriteBatchedInserts` when generated keys are requested, so that path cannot collapse into
+one statement.) The libraries use their idiomatic mechanisms: Exposed uses `executeBatch` with
+generated keys, Exposed DAO creates entities whose pending inserts flush as a batch, Hibernate
+persists with a sequence-backed id and JDBC batching, Storm runs its repository batch insert
+inside the ambient `transaction { }`, jOOQ issues a single multi-row `INSERT .. RETURNING`, and
+Jimmer runs its save command. The multi-row statement covers the 100-row batch in one
 statement; larger batches would chunk into multiple statements within the same transaction
 (PostgreSQL caps bind parameters at 65,535 per statement). Ktorm uses its native `batchInsert`,
 one JDBC batch inside the transaction, but its result shape differs from the rest: Ktorm's
@@ -237,9 +241,9 @@ Storm passes only the visits to `writeSet().insertAndFetch(...)`, whose insertio
 discovers the unsaved pets and owners through the visits' refs and writes one batch per type per
 dependency level; Hibernate builds the object graph and `persist`s each owner root, letting
 cascade persist plus `ORDER_INSERTS` order and batch the inserts. The others order it in the
-benchmark: JDBC uses three `executeBatch` levels with `getGeneratedKeys`, jOOQ three multi-row
-`INSERT ... RETURNING`, Exposed and Exposed DAO three `batchInsert`s, and Jimmer three
-`saveEntities` commands, each threading the returned parent ids into the next level. Ktorm is the
+benchmark: JDBC and jOOQ use three multi-row `INSERT ... RETURNING` statements, Exposed and
+Exposed DAO three `batchInsert`s, and Jimmer three `saveEntities` commands, each threading the
+returned parent ids into the next level. Ktorm is the
 exception, having no batch insert that returns keys: it inserts owners and pets row by row to
 thread the ids, then adds the visits. Every implementation returns the persisted visits and runs
 in an explicit transaction; the inserted owners, pets, and visits are removed in the untimed
