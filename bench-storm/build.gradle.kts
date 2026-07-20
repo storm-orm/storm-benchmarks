@@ -88,4 +88,9 @@ tasks.register<JavaExec>("profileAlloc") {
     description = "Splits the point-read allocation into build versus execute phases with precise counters."
     classpath = sourceSets["jmh"].runtimeClasspath
     mainClass = "st.orm.benchmarks.storm.ProfileAllocKt"
+    if (project.hasProperty("jfr")) {
+        jvmArgs("-XX:StartFlightRecording=filename=${layout.buildDirectory.get()}/alloc.jfr,settings=profile")
+    }
+    (project.findProperty("only") as String?)?.let { systemProperty("profile.only", it) }
+    (project.findProperty("iterations") as String?)?.let { systemProperty("profile.iterations", it) }
 }
