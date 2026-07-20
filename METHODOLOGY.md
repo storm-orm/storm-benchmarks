@@ -249,6 +249,12 @@ thread the ids, then adds the visits. Every implementation returns the persisted
 in an explicit transaction; the inserted owners, pets, and visits are removed in the untimed
 teardown between iterations.
 
+The returned visits carry a semantic difference worth knowing when reading this row. Storm's
+`insertAndFetch` re-selects the written rows so the returned entities reflect the state the
+database actually applied (column defaults, triggers); most of the others construct the returned
+rows client-side from the returned keys and never read back. That extra round trip is included in
+Storm's score by design: it is the contract of the operation, not overhead of the write path.
+
 ## Statement auditing
 
 `scripts/count-statements.sh` runs each workload against a PostgreSQL container with `log_statement=all` and
