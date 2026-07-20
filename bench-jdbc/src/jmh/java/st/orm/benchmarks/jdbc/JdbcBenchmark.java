@@ -205,25 +205,18 @@ public class JdbcBenchmark {
 
     @Benchmark
     public List<Long> batchInsert() throws SQLException {
-        int base = params.nextBatchBase();
+        int batchBase = params.nextBatchBase();
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO visit (pet_id, visit_date, description) VALUES (?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS)) {
-                for (int i = 0; i < Dataset.BATCH_SIZE; i++) {
-                    statement.setLong(1, Params.petIdForBatch(base, i));
-                    statement.setObject(2, Dataset.visitDate(base + i));
-                    statement.setString(3, Dataset.visitDescription(base + i));
-                    statement.addBatch();
-                }
-                statement.executeBatch();
-                List<Long> ids = new ArrayList<>(Dataset.BATCH_SIZE);
-                try (ResultSet keys = statement.getGeneratedKeys()) {
-                    while (keys.next()) {
-                        ids.add(keys.getLong(1));
-                    }
-                }
+            try {
+                // Match the single multi-row statement the ORMs emit: one INSERT ... VALUES (...),(...) RETURNING id.
+                List<Long> ids = multiRowInsertReturningKeys(connection, "visit",
+                        "pet_id, visit_date, description", 3, Dataset.BATCH_SIZE,
+                        (statement, base, index) -> {
+                            statement.setLong(base + 1, Params.petIdForBatch(batchBase, index));
+                            statement.setObject(base + 2, Dataset.visitDate(batchBase + index));
+                            statement.setString(base + 3, Dataset.visitDescription(batchBase + index));
+                        });
                 connection.commit();
                 return ids;
             } catch (SQLException e) {
@@ -388,32 +381,32 @@ public class JdbcBenchmark {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                List<Long> ownerIds = batchInsertReturningKeys(connection,
-                        "INSERT INTO owner (first_name, last_name, address, telephone, city_id) VALUES (?, ?, ?, ?, ?)",
-                        graphs, (statement, index) -> {
+                List<Long> ownerIds = multiRowInsertReturningKeys(connection, "owner",
+                        "first_name, last_name, address, telephone, city_id", 5, graphs.size(),
+                        (statement, base, index) -> {
                             Params.GraphInsert graph = graphs.get(index);
-                            statement.setString(1, Dataset.firstName(graph.seed()));
-                            statement.setString(2, Dataset.lastName(graph.seed()));
-                            statement.setString(3, Dataset.address(graph.seed()));
-                            statement.setString(4, Dataset.telephone(graph.seed()));
-                            statement.setLong(5, graph.cityId());
+                            statement.setString(base + 1, Dataset.firstName(graph.seed()));
+                            statement.setString(base + 2, Dataset.lastName(graph.seed()));
+                            statement.setString(base + 3, Dataset.address(graph.seed()));
+                            statement.setString(base + 4, Dataset.telephone(graph.seed()));
+                            statement.setLong(base + 5, graph.cityId());
                         });
-                List<Long> petIds = batchInsertReturningKeys(connection,
-                        "INSERT INTO pet (name, birth_date, type_id, owner_id) VALUES (?, ?, ?, ?)",
-                        graphs, (statement, index) -> {
+                List<Long> petIds = multiRowInsertReturningKeys(connection, "pet",
+                        "name, birth_date, type_id, owner_id", 4, graphs.size(),
+                        (statement, base, index) -> {
                             Params.GraphInsert graph = graphs.get(index);
-                            statement.setString(1, Dataset.petName(graph.seed()));
-                            statement.setObject(2, Dataset.petBirthDate(graph.seed()));
-                            statement.setLong(3, graph.typeId());
-                            statement.setLong(4, ownerIds.get(index));
+                            statement.setString(base + 1, Dataset.petName(graph.seed()));
+                            statement.setObject(base + 2, Dataset.petBirthDate(graph.seed()));
+                            statement.setLong(base + 3, graph.typeId());
+                            statement.setLong(base + 4, ownerIds.get(index));
                         });
-                List<Long> visitIds = batchInsertReturningKeys(connection,
-                        "INSERT INTO visit (pet_id, visit_date, description) VALUES (?, ?, ?)",
-                        graphs, (statement, index) -> {
+                List<Long> visitIds = multiRowInsertReturningKeys(connection, "visit",
+                        "pet_id, visit_date, description", 3, graphs.size(),
+                        (statement, base, index) -> {
                             Params.GraphInsert graph = graphs.get(index);
-                            statement.setLong(1, petIds.get(index));
-                            statement.setObject(2, Dataset.visitDate(graph.seed()));
-                            statement.setString(3, Dataset.visitDescription(graph.seed()));
+                            statement.setLong(base + 1, petIds.get(index));
+                            statement.setObject(base + 2, Dataset.visitDate(graph.seed()));
+                            statement.setString(base + 3, Dataset.visitDescription(graph.seed()));
                         });
                 connection.commit();
                 List<Visit> visits = new ArrayList<>(graphs.size());
@@ -433,19 +426,30 @@ public class JdbcBenchmark {
     }
 
     private interface RowBinder {
-        void bind(PreparedStatement statement, int index) throws SQLException;
+        void bind(PreparedStatement statement, int base, int index) throws SQLException;
     }
 
-    private static List<Long> batchInsertReturningKeys(Connection connection, String sql,
-            List<?> items, RowBinder binder) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            for (int i = 0; i < items.size(); i++) {
-                binder.bind(statement, i);
-                statement.addBatch();
+    /**
+     * Inserts {@code rowCount} rows with a single {@code INSERT INTO t (...) VALUES (...),(...) RETURNING id} statement
+     * and reads the generated keys from the result set. This mirrors the single multi-row statement the ORMs emit.
+     * pgjdbc disables {@code reWriteBatchedInserts} whenever generated keys are requested, so an {@code executeBatch}
+     * with {@code RETURN_GENERATED_KEYS} could not collapse into one statement; a multi-row {@code VALUES} with
+     * {@code RETURNING} is the fair hand-written equivalent. Each row's parameters live at offset {@code index * columnCount}.
+     */
+    private static List<Long> multiRowInsertReturningKeys(Connection connection, String table, String columns,
+            int columnCount, int rowCount, RowBinder binder) throws SQLException {
+        String tuple = "(" + "?, ".repeat(columnCount - 1) + "?)";
+        StringBuilder sql = new StringBuilder("INSERT INTO ").append(table).append(" (").append(columns).append(") VALUES ");
+        for (int i = 0; i < rowCount; i++) {
+            sql.append(i == 0 ? tuple : ", " + tuple);
+        }
+        sql.append(" RETURNING id");
+        try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < rowCount; i++) {
+                binder.bind(statement, i * columnCount, i);
             }
-            statement.executeBatch();
-            List<Long> ids = new ArrayList<>(items.size());
-            try (ResultSet keys = statement.getGeneratedKeys()) {
+            List<Long> ids = new ArrayList<>(rowCount);
+            try (ResultSet keys = statement.executeQuery()) {
                 while (keys.next()) {
                     ids.add(keys.getLong(1));
                 }
