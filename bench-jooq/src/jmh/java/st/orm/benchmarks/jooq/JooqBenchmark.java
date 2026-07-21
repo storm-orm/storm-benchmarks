@@ -51,7 +51,7 @@ import static st.orm.benchmarks.jooq.generated.Tables.VISIT;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Warmup(iterations = 5, time = 2)
 @Measurement(iterations = 5, time = 3)
-@Fork(2)
+@Fork(4)
 @Threads(1)
 @State(Scope.Benchmark)
 public class JooqBenchmark {
