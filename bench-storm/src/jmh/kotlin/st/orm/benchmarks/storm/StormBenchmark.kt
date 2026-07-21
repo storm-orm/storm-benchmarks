@@ -206,7 +206,11 @@ open class StormBenchmark {
                     description = Dataset.visitDescription(seed),
                 )
             }
-            orm.writeSet().insertAndFetch(visits).map { it as Visit }
+            // Only the ids come back: the returned visits are assembled client-side from the keys, like
+            // every other implementation. insertAndFetch remains the API for callers who need the rows
+            // re-read with database-applied state.
+            val ids = orm.writeSet().insertAndFetchIds(visits)
+            visits.mapIndexed { index, visit -> visit.copy(id = ids[index]) }
         }
     }
 }

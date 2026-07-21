@@ -281,11 +281,12 @@ returned parent ids into the next level. Every implementation returns the persis
 in an explicit transaction; the inserted owners, pets, and visits are removed in the untimed
 teardown between iterations.
 
-The returned visits carry a semantic difference worth knowing when reading this row. Storm's
-`insertAndFetch` re-selects the written rows so the returned entities reflect the state the
-database actually applied (column defaults, triggers); most of the others construct the returned
-rows client-side from the returned keys and never read back. That extra round trip is included in
-Storm's score by design: it is the contract of the operation, not overhead of the write path.
+Every implementation returns visits assembled client-side from the returned keys; no row is
+re-read. Storm goes through `writeSet().insertAndFetchIds`, which reports the keys the execution
+already holds for foreign-key propagation; its `insertAndFetch` variant, which re-selects the
+written rows so the returned entities reflect the state the database actually applied (column
+defaults, triggers), is the API for callers who need that stronger contract and is not what this
+workload asks for.
 
 ## Statement auditing
 
