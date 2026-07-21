@@ -75,7 +75,11 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    fixed keyset page size (HQL `limit` clause, jOOQ `DSL.inline`) so PostgreSQL caches the
    generic plan; and Jimmer runs with `setConstraintViolationTranslatable(false)`, its
    documented toggle that removes the SAVEPOINT pair around each save command in exchange
-   for raw instead of typed constraint exceptions, which these workloads never read.
+   for raw instead of typed constraint exceptions, which these workloads never read. For
+   symmetry: Storm runs unconfigured (`ORMTemplate.of(dataSource)`); its only opt-ins are
+   `@DynamicUpdate(UpdateMode.FIELD)` on the update-workload entity and the
+   `storm-postgresql` dialect module on the classpath. The multi-row RETURNING batches and
+   the literal scroll limit are Storm's default behavior, not settings.
 5. Result shapes are equivalent across libraries per workload: the same rows, the same
    materialized fields. A sanity check runs every workload once per trial and fails the
    benchmark if the row counts are wrong.
