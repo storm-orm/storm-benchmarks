@@ -65,24 +65,28 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    `join fetch`, jOOQ uses `MULTISET`, Jimmer uses object fetchers with batched secondary
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
    library; they are listed per workload below.
-4. Applications of rule 2 are documented per workload below. The standing ones: every
-   table the write workloads insert into feeds its primary key from a plain sequence rather
-   than an identity column, so Hibernate's recommended sequence generator
-   (`allocationSize = 50`) keeps JDBC batching enabled; the shared pool sets pgjdbc's
-   `reWriteBatchedInserts=true`, the standard recommendation for batching on PostgreSQL
-   (a no-op for statements that request generated keys); Ktorm's batch writes use
-   `bulkInsertReturning` from its PostgreSQL support module; Hibernate and jOOQ inline the
-   fixed keyset page size (HQL `limit` clause, jOOQ `DSL.inline`) so PostgreSQL caches the
-   generic plan; and Jimmer runs with `setConstraintViolationTranslatable(false)`, its
-   documented toggle that removes the SAVEPOINT pair around each save command in exchange
-   for raw instead of typed constraint exceptions, which these workloads never read. For
-   symmetry: Storm runs unconfigured (`ORMTemplate.of(dataSource)`); its only opt-ins are
-   `@DynamicUpdate(UpdateMode.FIELD)` on the update-workload entity and the
-   `storm-postgresql` dialect module on the classpath. The multi-row RETURNING batches and
-   the literal scroll limit are Storm's default behavior, not settings.
+4. Applications of rule 2 are tracked in the table below and noted with the workloads they
+   touch.
 5. Result shapes are equivalent across libraries per workload: the same rows, the same
    materialized fields. A sanity check runs every workload once per trial and fails the
    benchmark if the row counts are wrong.
+
+### Optimizations applied
+
+Every entry passes the three tests of rule 2. Storm's row is listed for symmetry: it runs
+unconfigured (`ORMTemplate.of(dataSource)`), and its fast paths (multi-row RETURNING batches,
+the literal scroll limit, the write-set dependency ordering) are defaults, not settings.
+
+| Scope | Optimization | Effect |
+|---|---|---|
+| Everyone | Sequence-fed primary keys on the insert-target tables | No library loses JDBC batching to an identity column; Hibernate's pooled generator (`allocationSize = 50`) allocates ids client-side. |
+| Everyone | pgjdbc `reWriteBatchedInserts=true` on the shared pool | Collapses keyless JDBC batches into multi-row INSERTs; a no-op when generated keys are requested. |
+| Storm | `@DynamicUpdate(UpdateMode.FIELD)` on the update-workload entity | Writes only the changed column. Storm's only opt-in besides the `storm-postgresql` dialect module. |
+| Hibernate | `@DynamicUpdate` on the owner entity | Writes only the changed column. |
+| Hibernate | HQL `limit 20`, a literal | PostgreSQL caches the generic plan for the keyset join instead of replanning it per call. |
+| jOOQ | `limit(DSL.inline(20))` | The same plan-cache effect on the keyset query. |
+| Ktorm | `bulkInsertReturning` from `ktorm-support-postgresql` | One multi-row `INSERT ... RETURNING` per batch; core Ktorm would retrieve keys row by row. |
+| Jimmer | `setConstraintViolationTranslatable(false)` | Removes the SAVEPOINT / RELEASE pair around each save command; constraint violations surface as raw exceptions, which these workloads never read. |
 
 ## Environment
 
