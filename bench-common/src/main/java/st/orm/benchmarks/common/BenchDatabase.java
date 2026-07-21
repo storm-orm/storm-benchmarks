@@ -76,11 +76,6 @@ public final class BenchDatabase {
         config.setPassword(password);
         config.setMaximumPoolSize(POOL_SIZE);
         config.setMinimumIdle(POOL_SIZE);
-        // pgjdbc's documented batch optimization: executeBatch collapses into multi-row INSERTs.
-        // The driver applies it only when generated keys are not requested, so libraries that read
-        // keys from the batch keep their statement shape; keyless batches (Hibernate's sequence-id
-        // inserts) collapse into far fewer statements.
-        config.addDataSourceProperty("reWriteBatchedInserts", "true");
         dataSource = new HikariDataSource(config);
         ensureSeeded(dataSource);
         return dataSource;

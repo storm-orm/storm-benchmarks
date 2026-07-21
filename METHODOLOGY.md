@@ -55,8 +55,9 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    the same PostgreSQL instance, the same JDBC driver, and an identical HikariCP pool.
 2. Every library gets the most performant solution its ecosystem documents for the
    workload. Database-specific solutions are allowed when they come through the library's
-   own modules, the JDBC driver, or configuration; the benchmark code itself stays within
-   the library's API. An optimization qualifies only if it passes three tests: it is
+   own modules or configuration; the benchmark code itself stays within the library's API,
+   and the JDBC driver and database run stock, identically for everyone: the suite measures
+   how the ORM performs when the ORM is configured, not what driver tuning can paper over. An optimization qualifies only if it passes three tests: it is
    documented, it is what production guidance for that library actually recommends, and it
    carries no semantic penalty for the workload it touches. Best practice takes precedence
    over raw speed: a trick a well-informed production team would not ship does not qualify.
@@ -80,7 +81,6 @@ the literal scroll limit, the write-set dependency ordering) are defaults, not s
 | Scope | Optimization | Effect |
 |---|---|---|
 | Everyone | Sequence-fed primary keys on the insert-target tables | No library loses JDBC batching to an identity column; Hibernate's pooled generator (`allocationSize = 50`) allocates ids client-side. |
-| Everyone | pgjdbc `reWriteBatchedInserts=true` on the shared pool | Collapses keyless JDBC batches into multi-row INSERTs; a no-op when generated keys are requested. |
 | Storm | `@DynamicUpdate(UpdateMode.FIELD)` on the update-workload entity | Writes only the changed column. Storm's only opt-in besides the `storm-postgresql` dialect module. |
 | Hibernate | `@DynamicUpdate` on the owner entity | Writes only the changed column. |
 | Hibernate | HQL `limit 20`, a literal | PostgreSQL caches the generic plan for the keyset join instead of replanning it per call. |
