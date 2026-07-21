@@ -61,10 +61,12 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
    library; they are listed per workload below.
 4. Where a default would disadvantage a library against its own documentation, the
-   recommended setting is used. The `visit` table uses a plain sequence rather than an
-   identity column specifically so Hibernate's recommended sequence generator
-   (`allocationSize = 50`) keeps JDBC batching enabled; every other library uses the same
-   sequence through the column default.
+   recommended setting is used. Every table the write workloads insert into (`visit`, and
+   `owner` and `pet` for the graph insert) feeds its primary key from a plain sequence
+   rather than an identity column, specifically so Hibernate's recommended sequence
+   generator (`allocationSize = 50`) keeps JDBC batching enabled: with identity columns
+   Hibernate must execute each insert immediately to obtain its key. Every other library
+   uses the same sequences through the column defaults.
 5. Result shapes are equivalent across libraries per workload: the same rows, the same
    materialized fields. A sanity check runs every workload once per trial and fails the
    benchmark if the row counts are wrong.

@@ -20,8 +20,9 @@ import java.util.List;
 
 /**
  * JPA entities following Hibernate's own recommendations: lazy associations
- * everywhere and a sequence generator with a pooled optimizer for the insert
- * workload, so JDBC batching stays enabled.
+ * everywhere and sequence generators with pooled optimizers on every table the
+ * write workloads insert into, so JDBC batching stays enabled. Identity
+ * columns would force each insert to execute immediately to obtain its key.
  */
 public final class Entities {
 
@@ -49,7 +50,8 @@ public final class Entities {
     @DynamicUpdate
     public static class Owner {
         @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "owner_seq_gen")
+        @SequenceGenerator(name = "owner_seq_gen", sequenceName = "owner_seq", allocationSize = 50)
         private Long id;
 
         @Column(name = "first_name")
@@ -118,7 +120,8 @@ public final class Entities {
     @Table(name = "pet")
     public static class Pet {
         @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "pet_seq_gen")
+        @SequenceGenerator(name = "pet_seq_gen", sequenceName = "pet_seq", allocationSize = 50)
         private Long id;
 
         @Column(name = "name")
