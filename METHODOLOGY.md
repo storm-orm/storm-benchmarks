@@ -164,11 +164,12 @@ change. This matters for fairness: libraries with change detection silently skip
 value equals the current one, and a generated value sequence repeats across JMH forks, which would turn the
 second fork into a read-only benchmark for those libraries.
 
-Every implementation writes only the changed column: Storm and Hibernate annotate the owner entity with their
-respective `@DynamicUpdate` options (the documented setting for write-heavy entities), jOOQ's
-`UpdatableRecord.store()`, Exposed DAO's flush, and Ktorm's `flushChanges()` track changed fields, Jimmer saves
-only the draft-modified properties, and the JDBC and Exposed (DSL) implementations update the single column
-explicitly. This workload exercises each library's change
+Every implementation issues a single UPDATE against the row just read: Storm and Hibernate annotate the owner
+entity with their respective `@DynamicUpdate` options (the documented setting for write-heavy entities), jOOQ's
+`UpdatableRecord.store()`, Exposed DAO's flush, and Ktorm's `flushChanges()` track changed fields and write only
+the changed column, and the JDBC and Exposed (DSL) implementations update the single column explicitly. Jimmer
+is the exception: statement logging shows its `UPDATE_ONLY` save writes every loaded column of the draft, which
+is its documented save semantics; the written values still differ only in the telephone. This workload exercises each library's change
 detection: Hibernate flushes via snapshot-based dirty checking, jOOQ's `UpdatableRecord.store()` updates
 changed fields, Exposed DAO flushes tracked field writes at commit, Ktorm's `flushChanges()` writes only the
 properties modified on the entity, Jimmer saves a draft-produced copy with `UPDATE_ONLY`, Storm updates an
@@ -204,6 +205,14 @@ as opposed to page/offset paging), jOOQ its native `ORDER BY ... SEEK(cursor) LI
 Hibernate, Exposed, Exposed DAO, Ktorm, and Jimmer an explicit `WHERE id > cursor ORDER BY id
 LIMIT 20`. 1 query per operation for every library except Exposed DAO and Jimmer, which add
 their batched association queries. The cursor cycles so successive pages walk the id space.
+
+The page size is where the implementations genuinely diverge. Storm, JDBC, and Exposed inline the count as a
+literal; Hibernate (`setMaxResults`), jOOQ (`limit(int)`), and Ktorm (`take(n)`) send it as a bind parameter,
+each library's documented pagination idiom. The execution plan is the same either way, but PostgreSQL never
+adopts a cached generic plan for the parameter form (the unknown row count inflates the generic plan's cost
+estimate), so it replans the three-table join on every execution, at a cost comparable to executing it.
+Verified with `PREPARE`/`EXECUTE`: after any number of executions the parameter form still shows a custom plan
+with folded constants, while the literal form switches to the cached generic plan.
 
 ### dynamic
 
