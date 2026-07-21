@@ -41,7 +41,7 @@ import javax.sql.DataSource
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Warmup(iterations = 5, time = 2)
 @Measurement(iterations = 5, time = 3)
-@Fork(4)
+@Fork(5)
 @Threads(1)
 @State(Scope.Benchmark)
 open class StormBenchmark {
