@@ -277,14 +277,15 @@ cascade persist plus `ORDER_INSERTS` order and batch the inserts. The others ord
 benchmark: JDBC, jOOQ, and Ktorm use three multi-row `INSERT ... RETURNING` statements (Ktorm
 through `bulkInsertReturning` from its PostgreSQL support module), Exposed and Exposed DAO three
 `batchInsert`s, and Jimmer three `saveEntities` commands, each threading the
-returned parent ids into the next level. Every implementation returns the persisted visits and runs
+returned parent ids into the next level. Every implementation returns the generated visit ids and runs
 in an explicit transaction; the inserted owners, pets, and visits are removed in the untimed
 teardown between iterations.
 
-Every implementation returns visits assembled client-side from the returned keys; no row is
-re-read. Storm goes through `writeSet().insertAndFetchIds`, which reports the keys the execution
-already holds for foreign-key propagation; its `insertAndFetch` variant, which re-selects the
-written rows so the returned entities reflect the state the database actually applied (column
+The workload returns the generated visit ids: the realistic contract of a create endpoint, and
+one that keeps key retrieval mandatory at every level. No implementation re-reads or assembles
+result entities. Storm reports the ids through `writeSet().insertAndFetchIds`, which the
+execution already holds for foreign-key propagation; its `insertAndFetch` variant, which
+re-selects the written rows so the returned entities reflect database-applied state (column
 defaults, triggers), is the API for callers who need that stronger contract and is not what this
 workload asks for.
 

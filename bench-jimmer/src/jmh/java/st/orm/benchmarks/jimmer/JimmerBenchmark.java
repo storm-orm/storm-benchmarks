@@ -261,7 +261,7 @@ public class JimmerBenchmark {
     }
 
     @Benchmark
-    public List<Visit> graphInsert() throws SQLException {
+    public List<Long> graphInsert() throws SQLException {
         List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
         for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
             graphs.add(params.nextGraphInsert());
@@ -302,13 +302,9 @@ public class JimmerBenchmark {
                         draft.setDescription(Dataset.visitDescription(graph.seed()));
                     }));
                 }
-                List<Visit> visits = new ArrayList<>(graphs.size());
-                for (var item : sqlClient.getEntities().saveEntitiesCommand(visitDrafts)
-                        .setMode(SaveMode.INSERT_ONLY).execute(connection).getItems()) {
-                    visits.add(item.getModifiedEntity());
-                }
+                List<Long> visitIds = saveEntitiesReturningIds(connection, visitDrafts, Visit::id);
                 connection.commit();
-                return visits;
+                return visitIds;
             } catch (RuntimeException e) {
                 connection.rollback();
                 throw e;

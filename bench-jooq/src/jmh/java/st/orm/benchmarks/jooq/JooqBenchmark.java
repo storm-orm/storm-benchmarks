@@ -231,7 +231,7 @@ public class JooqBenchmark {
     }
 
     @Benchmark
-    public List<Visit> graphInsert() {
+    public List<Long> graphInsert() {
         List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
         for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
             graphs.add(params.nextGraphInsert());
@@ -258,14 +258,7 @@ public class JooqBenchmark {
                 visitInsert = visitInsert.values(petIds.get(i), Dataset.visitDate(graph.seed()),
                         Dataset.visitDescription(graph.seed()));
             }
-            List<Long> visitIds = visitInsert.returning(VISIT.ID).fetch().map(record -> record.get(VISIT.ID));
-            List<Visit> visits = new ArrayList<>(graphs.size());
-            for (int i = 0; i < graphs.size(); i++) {
-                int seed = graphs.get(i).seed();
-                visits.add(new Visit(visitIds.get(i), petIds.get(i),
-                        Dataset.visitDate(seed), Dataset.visitDescription(seed)));
-            }
-            return visits;
+            return visitInsert.returning(VISIT.ID).fetch().map(record -> record.get(VISIT.ID));
         });
     }
 }

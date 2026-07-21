@@ -190,7 +190,7 @@ open class ExposedBenchmark {
     }
 
     @Benchmark
-    fun graphInsert(): List<Visit> {
+    fun graphInsert(): List<Long> {
         val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
         return transaction(database) {
             val ownerIds = Owners.batchInsert(graphs, shouldReturnGeneratedValues = true) { graph ->
@@ -212,10 +212,7 @@ open class ExposedBenchmark {
                 this[Visits.petId] = petIds[i]
                 this[Visits.visitDate] = Dataset.visitDate(graph.seed)
                 this[Visits.description] = Dataset.visitDescription(graph.seed)
-            }.mapIndexed { i, row ->
-                val graph = graphs[i]
-                Visit(row[Visits.id], petIds[i], Dataset.visitDate(graph.seed), Dataset.visitDescription(graph.seed))
-            }
+            }.map { it[Visits.id] }
         }
     }
 

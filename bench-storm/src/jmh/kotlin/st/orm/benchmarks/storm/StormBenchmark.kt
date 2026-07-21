@@ -179,7 +179,7 @@ open class StormBenchmark {
     }
 
     @Benchmark
-    fun graphInsert(): List<Visit> {
+    fun graphInsert(): List<Long> {
         val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
         return transactionBlocking {
             // Build the unsaved graphs in memory, rooted at the visits. Passing only the visits, the write set's
@@ -206,11 +206,9 @@ open class StormBenchmark {
                     description = Dataset.visitDescription(seed),
                 )
             }
-            // Only the ids come back: the returned visits are assembled client-side from the keys, like
-            // every other implementation. insertAndFetch remains the API for callers who need the rows
-            // re-read with database-applied state.
-            val ids = orm.writeSet().insertAndFetchIds(visits)
-            visits.mapIndexed { index, visit -> visit.copy(id = ids[index]) }
+            // The write set reports the visit keys it already holds for propagation; insertAndFetch
+            // remains the API for callers who need the rows re-read with database-applied state.
+            orm.writeSet().insertAndFetchIds(visits)
         }
     }
 }

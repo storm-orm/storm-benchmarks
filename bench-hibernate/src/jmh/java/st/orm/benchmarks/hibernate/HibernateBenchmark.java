@@ -222,7 +222,7 @@ public class HibernateBenchmark {
     }
 
     @Benchmark
-    public List<Visit> graphInsert() {
+    public List<Long> graphInsert() {
         List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
         for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
             graphs.add(params.nextGraphInsert());
@@ -243,7 +243,7 @@ public class HibernateBenchmark {
                 visits.add(visit);
             }
             session.flush();
-            return visits;
+            return visits.stream().map(Visit::getId).toList();
         });
     }
 }

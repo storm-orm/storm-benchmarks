@@ -373,7 +373,7 @@ public class JdbcBenchmark {
     }
 
     @Benchmark
-    public List<Visit> graphInsert() throws SQLException {
+    public List<Long> graphInsert() throws SQLException {
         List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
         for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
             graphs.add(params.nextGraphInsert());
@@ -409,13 +409,7 @@ public class JdbcBenchmark {
                             statement.setString(base + 3, Dataset.visitDescription(graph.seed()));
                         });
                 connection.commit();
-                List<Visit> visits = new ArrayList<>(graphs.size());
-                for (int i = 0; i < graphs.size(); i++) {
-                    int seed = graphs.get(i).seed();
-                    visits.add(new Visit(visitIds.get(i), petIds.get(i),
-                            Dataset.visitDate(seed), Dataset.visitDescription(seed)));
-                }
-                return visits;
+                return visitIds;
             } catch (SQLException e) {
                 connection.rollback();
                 throw e;

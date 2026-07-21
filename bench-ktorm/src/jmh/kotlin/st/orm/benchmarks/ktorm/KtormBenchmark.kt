@@ -205,7 +205,7 @@ open class KtormBenchmark {
     }
 
     @Benchmark
-    fun graphInsert(): List<Visit> {
+    fun graphInsert(): List<Long> {
         val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
         return database.useTransaction {
             // One multi-row INSERT ... RETURNING per dependency level, generated keys threaded between levels.
@@ -230,7 +230,7 @@ open class KtormBenchmark {
                     }
                 }
             }.map { requireNotNull(it) }
-            val visitIds = database.bulkInsertReturning(Visits, Visits.id) {
+            database.bulkInsertReturning(Visits, Visits.id) {
                 graphs.forEachIndexed { i, graph ->
                     item {
                         set(it.petId, petIds[i])
@@ -239,15 +239,6 @@ open class KtormBenchmark {
                     }
                 }
             }.map { requireNotNull(it) }
-            visitIds.mapIndexed { i, visitId ->
-                val visit = Visit {
-                    petId = petIds[i]
-                    visitDate = Dataset.visitDate(graphs[i].seed)
-                    description = Dataset.visitDescription(graphs[i].seed)
-                }
-                visit["id"] = visitId
-                visit
-            }
         }
     }
 
