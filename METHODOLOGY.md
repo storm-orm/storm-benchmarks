@@ -125,6 +125,15 @@ library's mapping cost per row. Storm, Hibernate, jOOQ, Exposed (DSL), Ktorm, an
 (Ktorm's reference bindings emit left joins, equivalent here since every foreign key is non-null). Jimmer
 and Exposed DAO follow their fetcher/eager-loading models: 1 main query plus batched association queries.
 
+The per-query fixed cost includes a planning pass on every execution, for every implementation including the
+JDBC baseline: with both range bounds arriving as bind parameters, PostgreSQL's generic-plan cost estimate
+(built from default range selectivity) never beats the custom plan, so the prepared statement stays in
+custom-plan mode and the three-table join is replanned on each call (verified with `PREPARE`/`EXECUTE`: the
+plan keeps showing folded constants after any number of executions). Planning this join costs on the order of
+executing its 10-row variant, which is why the 10-row and 100-row scores sit close together. The cost is
+identical for every library, so it shifts no standings; it only compresses relative differences at the small
+row counts.
+
 ### projection
 
 Same join shape, but only three columns (`pet.name`, `owner.last_name`, `city.name`)
