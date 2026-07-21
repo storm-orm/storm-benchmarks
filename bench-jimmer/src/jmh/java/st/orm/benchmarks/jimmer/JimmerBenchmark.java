@@ -54,6 +54,11 @@ public class JimmerBenchmark {
         sqlClient = JSqlClient.newBuilder()
                 .setConnectionManager(org.babyfish.jimmer.sql.runtime.ConnectionManager.simpleConnectionManager(dataSource))
                 .setDialect(new PostgresDialect())
+                // Constraint-violation translation wraps every mutation in SAVEPOINT / RELEASE on
+                // PostgreSQL to classify failures into typed exceptions. These workloads never read
+                // those exception types, so the documented toggle trades that classification away
+                // and removes two round trips per save command.
+                .setConstraintViolationTranslatable(false)
                 .build();
         params = new Params();
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),

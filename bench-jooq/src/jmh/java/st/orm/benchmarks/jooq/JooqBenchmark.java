@@ -187,7 +187,9 @@ public class JooqBenchmark {
                 .join(CITY).on(OWNER.CITY_ID.eq(CITY.ID))
                 .orderBy(PET.ID)
                 .seek(cursor)
-                .limit(Dataset.PAGE_SIZE)
+                // Inlined so PostgreSQL can settle on a cached generic plan; a bound row count keeps
+                // the statement on per-execution custom planning.
+                .limit(DSL.inline(Dataset.PAGE_SIZE))
                 .fetch(Records.mapping(Pet::new));
     }
 

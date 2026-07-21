@@ -53,21 +53,29 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
 
 1. Every library runs against the same schema, the same deterministically generated data,
    the same PostgreSQL instance, the same JDBC driver, and an identical HikariCP pool.
-2. Every implementation uses the library's documented, recommended approach for the
-   workload, the way its documentation tells users to write it. No library is forced
-   through another library's access pattern, and no exotic tuning is applied that a typical
-   user would not have.
+2. Every library gets the most performant solution its ecosystem documents for the
+   workload. Database-specific solutions are allowed when they come through the library's
+   own modules, the JDBC driver, or configuration; the benchmark code itself stays within
+   the library's API. An optimization qualifies only if it passes three tests: it is
+   documented, it is what production guidance for that library actually recommends, and it
+   carries no semantic penalty for the workload it touches. Best practice takes precedence
+   over raw speed: a trick a well-informed production team would not ship does not qualify.
+   No library is forced through another library's access pattern.
 3. Libraries are free to use their natural mechanism for a workload. Hibernate uses
    `join fetch`, jOOQ uses `MULTISET`, Jimmer uses object fetchers with batched secondary
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
    library; they are listed per workload below.
-4. Where a default would disadvantage a library against its own documentation, the
-   recommended setting is used. Every table the write workloads insert into (`visit`, and
-   `owner` and `pet` for the graph insert) feeds its primary key from a plain sequence
-   rather than an identity column, specifically so Hibernate's recommended sequence
-   generator (`allocationSize = 50`) keeps JDBC batching enabled: with identity columns
-   Hibernate must execute each insert immediately to obtain its key. Every other library
-   uses the same sequences through the column defaults.
+4. Applications of rule 2 are documented per workload below. The standing ones: every
+   table the write workloads insert into feeds its primary key from a plain sequence rather
+   than an identity column, so Hibernate's recommended sequence generator
+   (`allocationSize = 50`) keeps JDBC batching enabled; the shared pool sets pgjdbc's
+   `reWriteBatchedInserts=true`, the standard recommendation for batching on PostgreSQL
+   (a no-op for statements that request generated keys); Ktorm's batch writes use
+   `bulkInsertReturning` from its PostgreSQL support module; Hibernate and jOOQ inline the
+   fixed keyset page size (HQL `limit` clause, jOOQ `DSL.inline`) so PostgreSQL caches the
+   generic plan; and Jimmer runs with `setConstraintViolationTranslatable(false)`, its
+   documented toggle that removes the SAVEPOINT pair around each save command in exchange
+   for raw instead of typed constraint exceptions, which these workloads never read.
 5. Result shapes are equivalent across libraries per workload: the same rows, the same
    materialized fields. A sanity check runs every workload once per trial and fails the
    benchmark if the row counts are wrong.
@@ -210,13 +218,15 @@ Hibernate, Exposed, Exposed DAO, Ktorm, and Jimmer an explicit `WHERE id > curso
 LIMIT 20`. 1 query per operation for every library except Exposed DAO and Jimmer, which add
 their batched association queries. The cursor cycles so successive pages walk the id space.
 
-The page size is where the implementations genuinely diverge. Storm, JDBC, and Exposed inline the count as a
-literal; Hibernate (`setMaxResults`), jOOQ (`limit(int)`), and Ktorm (`take(n)`) send it as a bind parameter,
-each library's documented pagination idiom. The execution plan is the same either way, but PostgreSQL never
-adopts a cached generic plan for the parameter form (the unknown row count inflates the generic plan's cost
-estimate), so it replans the three-table join on every execution, at a cost comparable to executing it.
-Verified with `PREPARE`/`EXECUTE`: after any number of executions the parameter form still shows a custom plan
-with folded constants, while the literal form switches to the cached generic plan.
+The page size is inlined as a literal wherever the library can express it: Storm, JDBC, and Exposed by
+construction, Hibernate through the HQL `limit` clause, and jOOQ through `DSL.inline` (rule 2; the page size
+is a constant of the workload, not data). The reason: the execution plan is the same either way, but
+PostgreSQL never adopts a cached generic plan when the row count arrives as a bind parameter (the unknown
+count inflates the generic plan's cost estimate), so it replans the three-table join on every execution, at a
+cost comparable to executing it. Verified with `PREPARE`/`EXECUTE`: after any number of executions the
+parameter form still shows a custom plan with folded constants, while the literal form switches to the cached
+generic plan. Ktorm's `take(n)` has no literal form and keeps the bind parameter; Jimmer's `limit(int)` also
+binds, on a single-table statement where planning is cheap.
 
 ### dynamic
 

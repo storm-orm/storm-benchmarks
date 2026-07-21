@@ -174,10 +174,12 @@ public class HibernateBenchmark {
         long cursor = params.nextKeysetCursor();
         return sessionFactory.fromSession(session -> session
                 .createSelectionQuery(
-                        "from Pet p join fetch p.owner o join fetch o.city where p.id > :cursor order by p.id",
+                        // The literal limit lets PostgreSQL settle on a cached generic plan; a bound
+                        // row count (setMaxResults) keeps the statement on per-execution custom planning.
+                        "from Pet p join fetch p.owner o join fetch o.city where p.id > :cursor order by p.id limit "
+                                + Dataset.PAGE_SIZE,
                         Pet.class)
                 .setParameter("cursor", cursor)
-                .setMaxResults(Dataset.PAGE_SIZE)
                 .getResultList());
     }
 
