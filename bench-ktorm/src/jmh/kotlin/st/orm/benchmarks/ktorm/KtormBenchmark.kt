@@ -3,13 +3,11 @@ package st.orm.benchmarks.ktorm
 import org.ktorm.database.Database
 import org.ktorm.dsl.and
 import org.ktorm.dsl.asc
-import org.ktorm.dsl.batchInsert
 import org.ktorm.dsl.eq
 import org.ktorm.dsl.from
 import org.ktorm.dsl.greater
 import org.ktorm.dsl.greaterEq
 import org.ktorm.dsl.innerJoin
-import org.ktorm.dsl.insertAndGenerateKey
 import org.ktorm.dsl.lessEq
 import org.ktorm.dsl.map
 import org.ktorm.dsl.orderBy
@@ -24,6 +22,7 @@ import org.ktorm.entity.take
 import org.ktorm.entity.toList
 import org.ktorm.schema.ColumnDeclaring
 import org.ktorm.support.postgresql.PostgreSqlDialect
+import org.ktorm.support.postgresql.bulkInsertReturning
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
@@ -50,10 +49,10 @@ import javax.sql.DataSource
  * bindings drive the join and nested materialization; reads run in autocommit,
  * as idiomatic Ktorm does. Writes run inside `useTransaction { }`.
  *
- * The batch-insert workload uses Ktorm's native `batchInsert`, a single JDBC batch
- * inside one transaction. Ktorm has no batch path that returns generated keys, so,
- * unlike every other library, this workload inserts the rows without retrieving their
- * ids; see METHODOLOGY.
+ * The batch workloads use the PostgreSQL support module's `bulkInsertReturning`,
+ * Ktorm's documented API for multi-row `INSERT ... RETURNING` on PostgreSQL: one
+ * statement per batch (one per dependency level in the graph insert), with the
+ * generated keys read from the RETURNING clause.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -134,11 +133,11 @@ open class KtormBenchmark {
     }
 
     @Benchmark
-    fun batchInsert(): List<Int> {
+    fun batchInsert(): List<Long> {
         val base = params.nextBatchBase()
         return database.useTransaction {
-            // Ktorm's native batch: one JDBC batch, returns affected-row counts, not keys.
-            database.batchInsert(Visits) {
+            // One multi-row INSERT ... RETURNING carrying all rows; the keys come back with the statement.
+            database.bulkInsertReturning(Visits, Visits.id) {
                 for (i in 0 until Dataset.BATCH_SIZE) {
                     item {
                         set(it.petId, Params.petIdForBatch(base, i))
@@ -146,7 +145,7 @@ open class KtormBenchmark {
                         set(it.description, Dataset.visitDescription(base + i))
                     }
                 }
-            }.toList()
+            }.map { requireNotNull(it) }
         }
     }
 
@@ -209,31 +208,44 @@ open class KtormBenchmark {
     fun graphInsert(): List<Visit> {
         val graphs = (0 until Dataset.GRAPH_SIZE).map { params.nextGraphInsert() }
         return database.useTransaction {
-            // Ktorm has no batch insert that returns keys, so owners and pets go in row by row to thread the ids.
-            val ownerIds = graphs.map { graph ->
-                database.insertAndGenerateKey(Owners) {
-                    set(it.firstName, Dataset.firstName(graph.seed))
-                    set(it.lastName, Dataset.lastName(graph.seed))
-                    set(it.address, Dataset.address(graph.seed))
-                    set(it.telephone, Dataset.telephone(graph.seed))
-                    set(it.cityId, graph.cityId)
-                } as Long
-            }
-            val petIds = graphs.mapIndexed { i, graph ->
-                database.insertAndGenerateKey(Pets) {
-                    set(it.name, Dataset.petName(graph.seed))
-                    set(it.birthDate, Dataset.petBirthDate(graph.seed))
-                    set(it.typeId, graph.typeId)
-                    set(it.ownerId, ownerIds[i])
-                } as Long
-            }
-            graphs.mapIndexed { i, graph ->
+            // One multi-row INSERT ... RETURNING per dependency level, generated keys threaded between levels.
+            val ownerIds = database.bulkInsertReturning(Owners, Owners.id) {
+                for (graph in graphs) {
+                    item {
+                        set(it.firstName, Dataset.firstName(graph.seed))
+                        set(it.lastName, Dataset.lastName(graph.seed))
+                        set(it.address, Dataset.address(graph.seed))
+                        set(it.telephone, Dataset.telephone(graph.seed))
+                        set(it.cityId, graph.cityId)
+                    }
+                }
+            }.map { requireNotNull(it) }
+            val petIds = database.bulkInsertReturning(Pets, Pets.id) {
+                graphs.forEachIndexed { i, graph ->
+                    item {
+                        set(it.name, Dataset.petName(graph.seed))
+                        set(it.birthDate, Dataset.petBirthDate(graph.seed))
+                        set(it.typeId, graph.typeId)
+                        set(it.ownerId, ownerIds[i])
+                    }
+                }
+            }.map { requireNotNull(it) }
+            val visitIds = database.bulkInsertReturning(Visits, Visits.id) {
+                graphs.forEachIndexed { i, graph ->
+                    item {
+                        set(it.petId, petIds[i])
+                        set(it.visitDate, Dataset.visitDate(graph.seed))
+                        set(it.description, Dataset.visitDescription(graph.seed))
+                    }
+                }
+            }.map { requireNotNull(it) }
+            visitIds.mapIndexed { i, visitId ->
                 val visit = Visit {
                     petId = petIds[i]
-                    visitDate = Dataset.visitDate(graph.seed)
-                    description = Dataset.visitDescription(graph.seed)
+                    visitDate = Dataset.visitDate(graphs[i].seed)
+                    description = Dataset.visitDescription(graphs[i].seed)
                 }
-                database.sequenceOf(Visits).add(visit)
+                visit["id"] = visitId
                 visit
             }
         }
