@@ -71,7 +71,7 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
 
 ## Environment
 
-- **Harness**: JMH 1.37. `Mode.AverageTime` in microseconds, 2 forks, 5 warmup iterations
+- **Harness**: JMH 1.37. `Mode.AverageTime` in microseconds, 4 forks, 5 warmup iterations
   of 2 s, 5 measurement iterations of 3 s, single thread. The `--quick` profile (1 fork,
   2 x 1 s warmup, 3 x 1 s measurement) exists for smoke testing only; quick numbers are not
   publishable. Two further profiles: `--sample` switches to `Mode.SampleTime` and reports
@@ -292,6 +292,13 @@ a standard GitHub-hosted runner, uploaded as an artifact, and published alongsid
 release notes. Absolute numbers from CI runners vary with the underlying hardware; the
 published tables always state the runner type and the exact library versions. Rerun the
 suite locally to verify relative results on your own hardware.
+
+The published table reports, per cell, the median across forks (each fork scored as the mean
+of its measurement iterations) with a spread of half the range of the fork means. A JVM
+occasionally settles into an unfavorable JIT compilation plan for an entire fork, which a
+plain mean folds into the score; the median keeps the score representative while the spread
+keeps the disagreement between forks visible. The rule is applied to every implementation and
+every workload identically, and the raw per-fork data is published alongside each table.
 
 ## Known caveats
 
