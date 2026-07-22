@@ -1,0 +1,1024 @@
+[
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.batchInsert",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 3852.546435523081,
+            "scoreError" : 36.52718446822193,
+            "scoreConfidence" : [
+                3816.019251054859,
+                3889.073619991303
+            ],
+            "scorePercentiles" : {
+                "0.0" : 3782.0413337531486,
+                "50.0" : 3851.642946084724,
+                "90.0" : 3908.524295829088,
+                "95.0" : 3984.2279290981946,
+                "99.0" : 4014.1332419786095,
+                "99.9" : 4014.1332419786095,
+                "99.99" : 4014.1332419786095,
+                "99.999" : 4014.1332419786095,
+                "99.9999" : 4014.1332419786095,
+                "100.0" : 4014.1332419786095
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    3914.4488657105608,
+                    3859.6623457583546,
+                    3828.155964285714,
+                    3868.8330721649486,
+                    3812.822717916137
+                ],
+                [
+                    4014.1332419786095,
+                    3863.946796653797,
+                    3884.659928848642,
+                    3904.5745825747726,
+                    3880.6239147286824
+                ],
+                [
+                    3873.036513548387,
+                    3831.7478788265307,
+                    3799.8035670886075,
+                    3798.4947329113925,
+                    3782.0413337531486
+                ],
+                [
+                    3853.8328628205127,
+                    3825.7687210191084,
+                    3829.412968112245,
+                    3835.7519719029374,
+                    3791.7412626262626
+                ],
+                [
+                    3889.3036373056993,
+                    3848.402798717949,
+                    3810.2752588832486,
+                    3860.543003856041,
+                    3851.642946084724
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.dynamic",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 923.866275503374,
+            "scoreError" : 4.677929971643942,
+            "scoreConfidence" : [
+                919.1883455317301,
+                928.544205475018
+            ],
+            "scorePercentiles" : {
+                "0.0" : 915.7778053097345,
+                "50.0" : 922.3129268592502,
+                "90.0" : 933.9579223399654,
+                "95.0" : 940.7631236251148,
+                "99.0" : 941.9001403013183,
+                "99.9" : 941.9001403013183,
+                "99.99" : 941.9001403013183,
+                "99.999" : 941.9001403013183,
+                "99.9999" : 941.9001403013183,
+                "100.0" : 941.9001403013183
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    924.5431731895223,
+                    920.1092017785955,
+                    923.8067426108374,
+                    922.5313482938826,
+                    927.3134440667491
+                ],
+                [
+                    926.6533097591106,
+                    915.7778053097345,
+                    920.915934315531,
+                    919.1902549019608,
+                    916.4381243127673
+                ],
+                [
+                    941.9001403013183,
+                    926.2283765432098,
+                    922.0734849416103,
+                    919.0252750382848,
+                    921.484289004914
+                ],
+                [
+                    931.1898140906269,
+                    926.3029848718741,
+                    929.6124845105328,
+                    918.8172470912431,
+                    919.149567840735
+                ],
+                [
+                    938.1100847139732,
+                    924.0579149984601,
+                    920.7508211107702,
+                    922.3129268592502,
+                    918.3621371288644
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.graphInsert",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 2847.2563201787534,
+            "scoreError" : 22.62157023886557,
+            "scoreConfidence" : [
+                2824.634749939888,
+                2869.877890417619
+            ],
+            "scorePercentiles" : {
+                "0.0" : 2790.2995334572493,
+                "50.0" : 2843.6815,
+                "90.0" : 2893.392572268636,
+                "95.0" : 2908.0520154124465,
+                "99.0" : 2910.400064985451,
+                "99.9" : 2910.400064985451,
+                "99.99" : 2910.400064985451,
+                "99.999" : 2910.400064985451,
+                "99.9999" : 2910.400064985451,
+                "100.0" : 2910.400064985451
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    2860.253199237369,
+                    2846.731375711575,
+                    2867.9374317096467,
+                    2827.080331450094,
+                    2824.9060733772344
+                ],
+                [
+                    2831.5935650943397,
+                    2833.411191509434,
+                    2887.213226923077,
+                    2826.7680320150657,
+                    2825.520481167608
+                ],
+                [
+                    2850.0643428300095,
+                    2812.095049625468,
+                    2826.5994180790963,
+                    2790.2995334572493,
+                    2802.4830887021476
+                ],
+                [
+                    2856.7567973358705,
+                    2863.2449341603055,
+                    2887.272131730769,
+                    2831.217583018868,
+                    2854.485477186312
+                ],
+                [
+                    2910.400064985451,
+                    2880.937357965451,
+                    2902.5732330754354,
+                    2843.6815,
+                    2837.882584120983
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.joinWithMapping10",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 761.1662017152086,
+            "scoreError" : 52.28420022922853,
+            "scoreConfidence" : [
+                708.88200148598,
+                813.4504019444371
+            ],
+            "scorePercentiles" : {
+                "0.0" : 717.3304307912981,
+                "50.0" : 722.372916225325,
+                "90.0" : 884.7698100106215,
+                "95.0" : 890.4576779938699,
+                "99.0" : 892.2440178412132,
+                "99.9" : 892.2440178412132,
+                "99.99" : 892.2440178412132,
+                "99.999" : 892.2440178412132,
+                "99.9999" : 892.2440178412132,
+                "100.0" : 892.2440178412132
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    886.2895516834022,
+                    883.7566488954344,
+                    876.063158540146,
+                    874.719666180758,
+                    878.012950834065
+                ],
+                [
+                    892.2440178412132,
+                    762.2704639227642,
+                    717.8355016746411,
+                    718.4603920019157,
+                    718.72630251497
+                ],
+                [
+                    722.9316968674699,
+                    720.0970719942404,
+                    724.5837841101184,
+                    721.5552638287638,
+                    725.2839632583998
+                ],
+                [
+                    718.886172975563,
+                    723.0749693975904,
+                    720.7307509007927,
+                    722.9313452180197,
+                    721.3038216346154
+                ],
+                [
+                    717.3304307912981,
+                    719.5359932853717,
+                    720.0631787856971,
+                    722.372916225325,
+                    720.0950295176386
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.joinWithMapping100",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 1045.7207683291008,
+            "scoreError" : 10.233172747128675,
+            "scoreConfidence" : [
+                1035.487595581972,
+                1055.9539410762295
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1030.2556460693443,
+                "50.0" : 1045.673768641115,
+                "90.0" : 1076.4093196556673,
+                "95.0" : 1077.6162180599983,
+                "99.0" : 1078.1094717930291,
+                "99.9" : 1078.1094717930291,
+                "99.99" : 1078.1094717930291,
+                "99.999" : 1078.1094717930291,
+                "99.9999" : 1078.1094717930291,
+                "100.0" : 1078.1094717930291
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    1076.465292682927,
+                    1033.5867347571477,
+                    1030.2556460693443,
+                    1031.560667583362,
+                    1034.524960358497
+                ],
+                [
+                    1044.8724435933148,
+                    1034.3022399172698,
+                    1031.687216225507,
+                    1030.3399120879121,
+                    1039.5686625086626
+                ],
+                [
+                    1076.3720043041608,
+                    1045.9006298361799,
+                    1045.673768641115,
+                    1045.8082181944928,
+                    1048.8604973785389
+                ],
+                [
+                    1050.3071904095204,
+                    1045.204574364333,
+                    1038.377366782007,
+                    1045.9448306029976,
+                    1038.0485112417848
+                ],
+                [
+                    1078.1094717930291,
+                    1051.9624652875175,
+                    1052.5258340933005,
+                    1046.7632186955004,
+                    1045.9968508191007
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.joinWithMapping1000",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 4572.583713391543,
+            "scoreError" : 34.65213101720431,
+            "scoreConfidence" : [
+                4537.931582374338,
+                4607.235844408748
+            ],
+            "scorePercentiles" : {
+                "0.0" : 4460.799252600297,
+                "50.0" : 4580.785253435114,
+                "90.0" : 4638.732601545595,
+                "95.0" : 4648.307971319507,
+                "99.0" : 4652.142888372093,
+                "99.9" : 4652.142888372093,
+                "99.99" : 4652.142888372093,
+                "99.999" : 4652.142888372093,
+                "99.9999" : 4652.142888372093,
+                "100.0" : 4652.142888372093
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    4586.705654961832,
+                    4618.234576923077,
+                    4559.629756838905,
+                    4545.786033333334,
+                    4609.195745007681
+                ],
+                [
+                    4564.379346504559,
+                    4580.785253435114,
+                    4522.9914412650605,
+                    4533.9126087613295,
+                    4587.147824427481
+                ],
+                [
+                    4582.276909923664,
+                    4604.882389570552,
+                    4460.799252600297,
+                    4490.204109118086,
+                    4541.760708018154
+                ],
+                [
+                    4638.314448222565,
+                    4652.142888372093,
+                    4554.897849772382,
+                    4528.035491704374,
+                    4599.492436447167
+                ],
+                [
+                    4601.99206595092,
+                    4639.359831530139,
+                    4574.321846036585,
+                    4535.892773413897,
+                    4601.45159264931
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.keyset",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 499.7223509364246,
+            "scoreError" : 1.5837141273668727,
+            "scoreConfidence" : [
+                498.13863680905774,
+                501.3060650637915
+            ],
+            "scorePercentiles" : {
+                "0.0" : 495.06580960237585,
+                "50.0" : 499.8942844051983,
+                "90.0" : 502.41226674480913,
+                "95.0" : 502.6202725389395,
+                "99.0" : 502.709393766756,
+                "99.9" : 502.709393766756,
+                "99.99" : 502.709393766756,
+                "99.999" : 502.709393766756,
+                "99.9999" : 502.709393766756,
+                "100.0" : 502.709393766756
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    499.41864097869507,
+                    501.6502526333389,
+                    498.64373840784447,
+                    499.8176986506747,
+                    500.4649419516264
+                ],
+                [
+                    499.96212845718094,
+                    500.24184228076024,
+                    499.8942844051983,
+                    499.7308102931379,
+                    501.64115198127405
+                ],
+                [
+                    496.6668813110412,
+                    496.367417700579,
+                    498.5032804452567,
+                    495.50218447564,
+                    495.06580960237585
+                ],
+                [
+                    502.4123230073677,
+                    501.5618742895353,
+                    500.9372689482471,
+                    502.4122292364367,
+                    502.2573443254101
+                ],
+                [
+                    499.9104265244918,
+                    499.284558662007,
+                    502.709393766756,
+                    499.3075503411549,
+                    498.69474073458537
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.multiStatement",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 816.3766063127908,
+            "scoreError" : 1.916289509678775,
+            "scoreConfidence" : [
+                814.460316803112,
+                818.2928958224696
+            ],
+            "scorePercentiles" : {
+                "0.0" : 811.8619299242424,
+                "50.0" : 816.1296907805277,
+                "90.0" : 820.6980859956236,
+                "95.0" : 821.5673912526738,
+                "99.0" : 821.9019485072583,
+                "99.9" : 821.9019485072583,
+                "99.99" : 821.9019485072583,
+                "99.999" : 821.9019485072583,
+                "99.9999" : 821.9019485072583,
+                "100.0" : 821.9019485072583
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    817.6038735694823,
+                    814.1438676071623,
+                    820.7867576586433,
+                    820.4389310910583,
+                    816.166854461371
+                ],
+                [
+                    814.009119913185,
+                    821.9019485072583,
+                    817.855765331153,
+                    816.1296907805277,
+                    816.251415125136
+                ],
+                [
+                    817.23539624183,
+                    816.4734876190477,
+                    815.0852887802228,
+                    811.8619299242424,
+                    818.7379841746248
+                ],
+                [
+                    815.482829076087,
+                    817.4767755380005,
+                    814.1171451437873,
+                    814.4788821932682,
+                    814.7138017920174
+                ],
+                [
+                    820.6389715536105,
+                    813.640729934924,
+                    814.3198276797829,
+                    815.2975989130434,
+                    814.5662852103121
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.objectGraph",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 906.7712329623778,
+            "scoreError" : 7.23655126969656,
+            "scoreConfidence" : [
+                899.5346816926813,
+                914.0077842320743
+            ],
+            "scorePercentiles" : {
+                "0.0" : 896.7624704124328,
+                "50.0" : 902.3339624060151,
+                "90.0" : 922.4807443625214,
+                "95.0" : 926.2764012487667,
+                "99.0" : 927.7162319109462,
+                "99.9" : 927.7162319109462,
+                "99.99" : 927.7162319109462,
+                "99.999" : 927.7162319109462,
+                "99.9999" : 927.7162319109462,
+                "100.0" : 927.7162319109462
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    918.9141555895865,
+                    901.0835501501501,
+                    899.899200659868,
+                    900.2164770477048,
+                    899.9760455908818
+                ],
+                [
+                    918.7077112676056,
+                    898.0400092786591,
+                    897.8080272292041,
+                    903.3218880192655,
+                    899.2652379382679
+                ],
+                [
+                    909.8388714372347,
+                    903.4803514001807,
+                    899.6936023988006,
+                    902.3339624060151,
+                    903.3096068633354
+                ],
+                [
+                    913.8223370889159,
+                    922.1900430239705,
+                    920.3796095092025,
+                    922.9167963703476,
+                    927.7162319109462
+                ],
+                [
+                    910.9086721311476,
+                    897.1493757847534,
+                    901.2950765995795,
+                    900.2515139513952,
+                    896.7624704124328
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.projection",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 978.2802319125204,
+            "scoreError" : 2.069565676267314,
+            "scoreConfidence" : [
+                976.2106662362531,
+                980.3497975887877
+            ],
+            "scorePercentiles" : {
+                "0.0" : 972.2805097213221,
+                "50.0" : 978.5028154548419,
+                "90.0" : 981.7828662303665,
+                "95.0" : 983.0209198863646,
+                "99.0" : 983.5486207800722,
+                "99.9" : 983.5486207800722,
+                "99.99" : 983.5486207800722,
+                "99.999" : 983.5486207800722,
+                "99.9999" : 983.5486207800722,
+                "100.0" : 983.5486207800722
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    983.5486207800722,
+                    977.8218126425546,
+                    980.0785855649902,
+                    980.6154882352942,
+                    980.360860176413
+                ],
+                [
+                    977.5133371335505,
+                    974.7174269005848,
+                    978.4399377241605,
+                    978.2676534072383,
+                    980.7232630718954
+                ],
+                [
+                    972.2805097213221,
+                    975.7225177235772,
+                    972.7090787682334,
+                    980.0839506858263,
+                    978.5904341161122
+                ],
+                [
+                    981.7896178010471,
+                    976.4427800195249,
+                    978.5028154548419,
+                    978.5210880626223,
+                    980.273926167919
+                ],
+                [
+                    975.4771251625488,
+                    979.2225613577024,
+                    981.778365183246,
+                    976.194552049447,
+                    977.3294899022801
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.singleRowById",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 208.07615997542678,
+            "scoreError" : 1.3965722868760138,
+            "scoreConfidence" : [
+                206.67958768855075,
+                209.4727322623028
+            ],
+            "scorePercentiles" : {
+                "0.0" : 205.1549871470568,
+                "50.0" : 207.92248794178795,
+                "90.0" : 210.81905070441076,
+                "95.0" : 212.19651490438497,
+                "99.0" : 212.59828045064833,
+                "99.9" : 212.59828045064833,
+                "99.99" : 212.59828045064833,
+                "99.999" : 212.59828045064833,
+                "99.9999" : 212.59828045064833,
+                "100.0" : 212.59828045064833
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    206.8594559431881,
+                    208.14039569892472,
+                    206.0947933782113,
+                    206.97718439569536,
+                    207.92248794178795
+                ],
+                [
+                    208.1276557991121,
+                    205.1549871470568,
+                    206.39085203274402,
+                    205.95900967874795,
+                    208.5815369160178
+                ],
+                [
+                    207.68314924546587,
+                    207.39597698050602,
+                    205.5086563463251,
+                    206.05316894444064,
+                    210.52570986528207
+                ],
+                [
+                    210.30391939440668,
+                    209.9202020710887,
+                    211.2590619631038,
+                    207.5541746800415,
+                    212.59828045064833
+                ],
+                [
+                    209.85866314611457,
+                    208.87175,
+                    208.1874939976407,
+                    208.38148152521183,
+                    207.59395184390783
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.36",
+        "benchmark" : "st.orm.benchmarks.jooq.JooqBenchmark.updateById",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 5,
+        "jvm" : "/usr/lib/jvm/temurin-21-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/home/runner/work/storm-benchmarks/storm-benchmarks/bench-jooq/build/tmp/jmh",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-Dbench.jdbc.url=jdbc:postgresql://127.0.0.1:32768/bench"
+        ],
+        "jdkVersion" : "21.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "21.0.11+10-LTS",
+        "warmupIterations" : 5,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "3 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 734.4030661843472,
+            "scoreError" : 2.334948892483311,
+            "scoreConfidence" : [
+                732.0681172918638,
+                736.7380150768305
+            ],
+            "scorePercentiles" : {
+                "0.0" : 728.9053692008745,
+                "50.0" : 734.3844738130201,
+                "90.0" : 738.9031006864409,
+                "95.0" : 740.7139120717603,
+                "99.0" : 741.2727981719368,
+                "99.9" : 741.2727981719368,
+                "99.99" : 741.2727981719368,
+                "99.999" : 741.2727981719368,
+                "99.9999" : 741.2727981719368,
+                "100.0" : 741.2727981719368
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    732.4948005371094,
+                    733.104343757635,
+                    732.118070034163,
+                    734.2269760215316,
+                    737.8620351697
+                ],
+                [
+                    741.2727981719368,
+                    735.9572023546725,
+                    735.11463277805,
+                    735.5795881343466,
+                    731.3771769436997
+                ],
+                [
+                    737.4597225362497,
+                    732.8598072789448,
+                    730.4115715676728,
+                    732.4282487185745,
+                    735.3391708333334
+                ],
+                [
+                    738.56527147428,
+                    739.4098445046822,
+                    737.1071483664947,
+                    729.084457837181,
+                    734.3844738130201
+                ],
+                [
+                    734.6308423114593,
+                    734.3355107684778,
+                    731.3685966366073,
+                    728.9053692008745,
+                    734.6789948579824
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

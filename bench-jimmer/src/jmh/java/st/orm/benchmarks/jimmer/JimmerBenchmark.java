@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Warmup(iterations = 5, time = 2)
 @Measurement(iterations = 5, time = 3)
-@Fork(2)
+@Fork(5)
 @Threads(1)
 @State(Scope.Benchmark)
 public class JimmerBenchmark {
@@ -54,16 +54,21 @@ public class JimmerBenchmark {
         sqlClient = JSqlClient.newBuilder()
                 .setConnectionManager(org.babyfish.jimmer.sql.runtime.ConnectionManager.simpleConnectionManager(dataSource))
                 .setDialect(new PostgresDialect())
+                // Constraint-violation translation wraps every mutation in SAVEPOINT / RELEASE on
+                // PostgreSQL to classify failures into typed exceptions. These workloads never read
+                // those exception types, so the documented toggle trades that classification away
+                // and removes two round trips per save command.
+                .setConstraintViolationTranslatable(false)
                 .build();
         params = new Params();
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
-                batchInsert(), updateById(), objectGraph());
-        BenchDatabase.resetInsertedVisits(dataSource);
+                batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @TearDown(Level.Iteration)
     public void resetInsertedRows() {
-        BenchDatabase.resetInsertedVisits(dataSource);
+        BenchDatabase.resetInsertedRows(dataSource);
     }
 
     @Benchmark
@@ -189,5 +194,136 @@ public class JimmerBenchmark {
                                 .city(CityFetcher.$.allScalarFields())
                                 .pets(PetFetcher.$.allScalarFields())))
                 .execute();
+    }
+
+    @Benchmark
+    public List<Pet> keyset() {
+        long cursor = params.nextKeysetCursor();
+        PetTable table = PetTable.$;
+        return sqlClient.createQuery(table)
+                .where(table.id().gt(cursor))
+                .orderBy(table.id().asc())
+                .select(table.fetch(
+                        PetFetcher.$
+                                .allScalarFields()
+                                .owner(OwnerFetcher.$
+                                        .allScalarFields()
+                                        .city(CityFetcher.$.allScalarFields()))))
+                .limit(Dataset.PAGE_SIZE)
+                .execute();
+    }
+
+    @Benchmark
+    public List<Tuple3<String, String, String>> dynamic() {
+        Params.DynamicFilter filter = params.nextDynamicFilter();
+        PetTable table = PetTable.$;
+        // Jimmer ignores null predicates, its idiom for dynamic queries.
+        return sqlClient.createQuery(table)
+                .where(table.owner().city().id().eq(filter.cityId()))
+                .where(filter.byDate() ? table.birthDate().ge(filter.minBirthDate()) : null)
+                .where(filter.byType() ? table.type().id().eq(filter.typeId()) : null)
+                .select(table.name(), table.owner().lastName(), table.owner().city().name())
+                .execute();
+    }
+
+    @Benchmark
+    public Long multiStatement() throws SQLException {
+        long petId = params.nextMultiPetId();
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                Visit visit = VisitDraft.$.produce(draft -> {
+                    draft.setPet(ImmutableObjects.makeIdOnly(Pet.class, petId));
+                    draft.setVisitDate(Dataset.visitDate((int) petId));
+                    draft.setDescription(Dataset.visitDescription((int) petId));
+                });
+                // The save returns the modified entity with its generated id, so no reread is needed.
+                Visit saved = sqlClient.getEntities()
+                        .saveCommand(visit)
+                        .setMode(SaveMode.INSERT_ONLY)
+                        .execute(connection)
+                        .getModifiedEntity();
+                Visit updated = VisitDraft.$.produce(saved,
+                        draft -> draft.setDescription(saved.description() + " (rechecked)"));
+                sqlClient.getEntities()
+                        .saveCommand(updated)
+                        .setMode(SaveMode.UPDATE_ONLY)
+                        .execute(connection);
+                connection.commit();
+                return saved.id();
+            } catch (RuntimeException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Benchmark
+    public List<Long> graphInsert() throws SQLException {
+        List<Params.GraphInsert> graphs = new ArrayList<>(Dataset.GRAPH_SIZE);
+        for (int i = 0; i < Dataset.GRAPH_SIZE; i++) {
+            graphs.add(params.nextGraphInsert());
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                List<Owner> ownerDrafts = new ArrayList<>(graphs.size());
+                for (Params.GraphInsert graph : graphs) {
+                    ownerDrafts.add(OwnerDraft.$.produce(draft -> {
+                        draft.setFirstName(Dataset.firstName(graph.seed()));
+                        draft.setLastName(Dataset.lastName(graph.seed()));
+                        draft.setAddress(Dataset.address(graph.seed()));
+                        draft.setTelephone(Dataset.telephone(graph.seed()));
+                        draft.setCity(ImmutableObjects.makeIdOnly(City.class, graph.cityId()));
+                    }));
+                }
+                List<Long> ownerIds = saveEntitiesReturningIds(connection, ownerDrafts, Owner::id);
+                List<Pet> petDrafts = new ArrayList<>(graphs.size());
+                for (int i = 0; i < graphs.size(); i++) {
+                    Params.GraphInsert graph = graphs.get(i);
+                    long ownerId = ownerIds.get(i);
+                    petDrafts.add(PetDraft.$.produce(draft -> {
+                        draft.setName(Dataset.petName(graph.seed()));
+                        draft.setBirthDate(Dataset.petBirthDate(graph.seed()));
+                        draft.setType(ImmutableObjects.makeIdOnly(PetType.class, graph.typeId()));
+                        draft.setOwner(ImmutableObjects.makeIdOnly(Owner.class, ownerId));
+                    }));
+                }
+                List<Long> petIds = saveEntitiesReturningIds(connection, petDrafts, Pet::id);
+                List<Visit> visitDrafts = new ArrayList<>(graphs.size());
+                for (int i = 0; i < graphs.size(); i++) {
+                    Params.GraphInsert graph = graphs.get(i);
+                    long petId = petIds.get(i);
+                    visitDrafts.add(VisitDraft.$.produce(draft -> {
+                        draft.setPet(ImmutableObjects.makeIdOnly(Pet.class, petId));
+                        draft.setVisitDate(Dataset.visitDate(graph.seed()));
+                        draft.setDescription(Dataset.visitDescription(graph.seed()));
+                    }));
+                }
+                List<Long> visitIds = saveEntitiesReturningIds(connection, visitDrafts, Visit::id);
+                connection.commit();
+                return visitIds;
+            } catch (RuntimeException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    private <E> List<Long> saveEntitiesReturningIds(Connection connection, List<E> drafts,
+            java.util.function.ToLongFunction<E> id) {
+        BatchSaveResult<E> result = sqlClient.getEntities()
+                .saveEntitiesCommand(drafts)
+                .setMode(SaveMode.INSERT_ONLY)
+                .execute(connection);
+        List<Long> ids = new ArrayList<>(drafts.size());
+        for (var item : result.getItems()) {
+            ids.add(id.applyAsLong(item.getModifiedEntity()));
+        }
+        return ids;
     }
 }

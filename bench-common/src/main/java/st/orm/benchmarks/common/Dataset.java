@@ -29,11 +29,20 @@ public final class Dataset {
     /** Rows written per invocation of the batch-insert workload. */
     public static final int BATCH_SIZE = 100;
 
+    /** Rows per page in the keyset (scroll) pagination workload. */
+    public static final int PAGE_SIZE = 20;
+
+    /** Number of owner-pet-visit graphs written per invocation of the graph-insert workload. */
+    public static final int GRAPH_SIZE = 20;
+
     /** visit_seq starts here; every benchmark-inserted visit has an id at or above this floor. */
     public static final long INSERTED_ID_FLOOR = 1_000_000L;
 
     public static final LocalDate PET_EPOCH = LocalDate.of(2015, 1, 1);
     public static final LocalDate VISIT_EPOCH = LocalDate.of(2020, 1, 1);
+
+    /** Birth-date threshold for the optional date predicate in the dynamic-query workload (roughly the midpoint). */
+    public static final LocalDate DYNAMIC_MIN_BIRTH_DATE = PET_EPOCH.plusDays(1825);
 
     public static String cityName(int index) {
         return "City %03d".formatted(index);

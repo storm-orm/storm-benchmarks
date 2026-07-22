@@ -24,5 +24,6 @@ include(
     "bench-jooq",
     "bench-exposed",
     "bench-exposed-dao",
+    "bench-ktorm",
     "bench-jimmer",
 )

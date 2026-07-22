@@ -39,6 +39,17 @@ tasks.register<JavaExec>("profileSplit") {
     mainClass = "st.orm.benchmarks.storm.ProfileSplitKt"
 }
 
+tasks.register<JavaExec>("profileGraphInsert") {
+    description = "Splits the graphInsert cost into write-set discovery versus the underlying batched inserts."
+    classpath = sourceSets["jmh"].runtimeClasspath
+    mainClass = "st.orm.benchmarks.storm.ProfileGraphInsertKt"
+    if (project.hasProperty("jfr")) {
+        jvmArgs("-XX:StartFlightRecording=filename=${layout.buildDirectory.get()}/graphinsert.jfr,settings=profile")
+    }
+    (project.findProperty("only") as String?)?.let { systemProperty("profile.only", it) }
+    (project.findProperty("iterations") as String?)?.let { systemProperty("profile.iterations", it) }
+}
+
 jmh {
     resultFormat.set("JSON")
     resultsFile.set(layout.buildDirectory.file("results/${project.name}.json"))
@@ -71,4 +82,15 @@ tasks.register<JavaExec>("profileGrouped") {
     description = "Splits the objectGraph cost: plain, ordered, and grouped over the same query."
     classpath = sourceSets["jmh"].runtimeClasspath
     mainClass = "st.orm.benchmarks.storm.ProfileGroupedKt"
+}
+
+tasks.register<JavaExec>("profileAlloc") {
+    description = "Splits the point-read allocation into build versus execute phases with precise counters."
+    classpath = sourceSets["jmh"].runtimeClasspath
+    mainClass = "st.orm.benchmarks.storm.ProfileAllocKt"
+    if (project.hasProperty("jfr")) {
+        jvmArgs("-XX:StartFlightRecording=filename=${layout.buildDirectory.get()}/alloc.jfr,settings=profile")
+    }
+    (project.findProperty("only") as String?)?.let { systemProperty("profile.only", it) }
+    (project.findProperty("iterations") as String?)?.let { systemProperty("profile.iterations", it) }
 }

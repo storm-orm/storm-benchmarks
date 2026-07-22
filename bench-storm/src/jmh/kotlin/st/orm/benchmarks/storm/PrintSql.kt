@@ -3,10 +3,13 @@ package st.orm.benchmarks.storm
 import st.orm.benchmarks.common.BenchDatabase
 import st.orm.benchmarks.common.Dataset
 import st.orm.benchmarks.common.Params
+import st.orm.Scrollable
 import st.orm.core.template.SqlInterceptor
 import st.orm.template.ORMTemplate
+import st.orm.template.PredicateBuilder
 import st.orm.template.eq
 import st.orm.template.greater
+import st.orm.template.greaterEq
 import st.orm.template.lessEq
 import st.orm.template.refById
 import st.orm.template.selectFrom
@@ -76,5 +79,28 @@ fun main() {
             .map { (owner, ownerPets) -> OwnerWithPets(owner, ownerPets) }
     }
 
-    BenchDatabase.resetInsertedVisits(dataSource)
+    show("keyset") {
+        pets.scroll(Scrollable.of(Pet_.id, 100L, Dataset.PAGE_SIZE)).content
+    }
+
+    show("dynamic (city + date + type)") {
+        var predicate: PredicateBuilder<Pet, *, *> = Pet_.owner.city.id eq 1L
+        predicate = predicate and (Pet_.birthDate greaterEq Dataset.DYNAMIC_MIN_BIRTH_DATE)
+        predicate = predicate and (Pet_.type eq refById<PetType>(1L))
+        orm.selectFrom<Pet, PetRow> { "${Pet_.name}, ${Pet_.owner.lastName}, ${Pet_.owner.city.name}" }
+            .where(predicate)
+            .resultList
+    }
+
+    show("multiStatement") {
+        transactionBlocking {
+            val visit = visits.insertAndFetch(
+                Visit(pet = refById<Pet>(1L), visitDate = Dataset.visitDate(1), description = Dataset.visitDescription(1)),
+            )
+            visits.update(visit.copy(description = "${visit.description} (rechecked)"))
+            visit.id
+        }
+    }
+
+    BenchDatabase.resetInsertedRows(dataSource)
 }
