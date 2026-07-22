@@ -338,10 +338,11 @@ warmup lottery assigns to each plan). The plan lottery itself stays visible in t
 range rather than in the score. Five forks are kept because the estimator depends on at least
 one fork compiling well: on real data, a three-fork subset misses the fast plan on up to 40% of
 draws for the plan-sensitive cells. A JVM
-occasionally settles into an unfavorable JIT compilation plan for an entire fork, which a
-plain mean folds into the score; the median keeps the score representative while the spread
-keeps the disagreement between forks visible. The rule is applied to every implementation and
-every workload identically, and the raw per-fork data is published alongside each table.
+occasionally settles into an unfavorable JIT compilation plan for an entire fork; a plain mean
+folds that fork into the score and a median depends on how many forks drew it, while the fastest
+fork reports the cost of the well-compiled state every JVM can reach, with the range keeping the
+disagreement between forks visible. The rule is applied to every implementation and every
+workload identically, and the raw per-fork data is published alongside each table.
 
 ## Known caveats
 
