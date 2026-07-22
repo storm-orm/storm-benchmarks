@@ -12,5 +12,4 @@ measures and the fairness rules.
 
 | Run | Storm | Runner | Notes |
 |---|---|---|---|
-| [2026-07-21-storm-main](2026-07-21-storm-main/) | `main` @ 14b57c2f (1.13.0) | dedicated 4-core Ubuntu 24 | first 4-fork run; statement-build allocation work landed; see metadata for the join compilation-plan note |
-| [2026-07-20-storm-main](2026-07-20-storm-main/) | `main` @ 072a2fb5 (1.13.0) | dedicated 4-core Ubuntu 24 | multi-row `RETURNING` batch inserts; JDBC baseline aligned to the same technique |
+| [2026-07-22](2026-07-22/) | `main` @ 8aac08da (1.13.0) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04 | canonical run: all fairness-rule applications, fastest-of-5 estimator; see metadata for the runner hardware note |
