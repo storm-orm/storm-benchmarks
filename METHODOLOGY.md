@@ -142,14 +142,15 @@ library's mapping cost per row. Storm, Hibernate, jOOQ, Exposed (DSL), Ktorm, an
 (Ktorm's reference bindings emit left joins, equivalent here since every foreign key is non-null). Jimmer
 and Exposed DAO follow their fetcher/eager-loading models: 1 main query plus batched association queries.
 
-The per-query fixed cost includes a planning pass on every execution, for every implementation including the
-JDBC baseline: with both range bounds arriving as bind parameters, PostgreSQL's generic-plan cost estimate
-(built from default range selectivity) never beats the custom plan, so the prepared statement stays in
-custom-plan mode and the three-table join is replanned on each call (verified with `PREPARE`/`EXECUTE`: the
-plan keeps showing folded constants after any number of executions). Planning this join costs on the order of
-executing its 10-row variant, which is why the 10-row and 100-row scores sit close together. The cost is
-identical for every library, so it shifts no standings; it only compresses relative differences at the small
-row counts.
+The per-query fixed cost can include a planning pass on every execution: with both range bounds arriving as
+bind parameters, PostgreSQL chooses between replanning each call (custom plans, a nested loop) and a cached
+generic plan (a hash join over owner and city, no planning). Verified with `PREPARE`/`EXECUTE`, the decision
+follows the bind values seen in the first executions: 10-row spans stay on custom plans, 100-row spans sit at
+the cost crossover and can settle either way, and each library's slightly different statement text races that
+decision independently. A run can therefore place implementations on different sides of the crossover for the
+100-row variant; a baseline whose 100-row window measures faster than its own 10-row window is the signature
+of the cached generic plan. Read the 100-row column with that caveat; the 1000-row variant, where the regimes
+converge, is the cleaner read of per-row mapping cost.
 
 ### projection
 
