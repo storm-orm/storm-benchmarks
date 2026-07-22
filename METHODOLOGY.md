@@ -63,9 +63,10 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    over raw speed: a trick a well-informed production team would not ship does not qualify.
    No library is forced through another library's access pattern.
 3. A library may define a purpose-built entity shape for a workload on top of its regular
-   entity for that type (a lazy read shape of the owner table, for example), subject to the
-   same three tests. Because such a shape exists to speed a query, its lines count as query
-   code rather than model code wherever lines of code are compared.
+   entity for that type (a lazy read shape of the owner table, for example), held to the
+   tests of rule 2: documented features, recommended practice, no semantic penalty for the
+   workload. Because such a shape exists to speed a query, its lines count as query code
+   rather than model code wherever lines of code are compared.
 4. Libraries are free to use their natural mechanism for a workload. Hibernate uses
    `join fetch`, jOOQ uses `MULTISET`, Jimmer uses object fetchers with batched secondary
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
