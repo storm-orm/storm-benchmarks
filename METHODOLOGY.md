@@ -61,7 +61,10 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    documented, it is what production guidance for that library actually recommends, and it
    carries no semantic penalty for the workload it touches. Best practice takes precedence
    over raw speed: a trick a well-informed production team would not ship does not qualify.
-   No library is forced through another library's access pattern.
+   Purpose-built entity shapes for a workload (a lazy read shape of a table, for example)
+   qualify under the same tests; where lines of code are compared, such shapes count as query
+   code of the library that defines them, since they exist to speed a query. No library is
+   forced through another library's access pattern.
 3. Libraries are free to use their natural mechanism for a workload. Hibernate uses
    `join fetch`, jOOQ uses `MULTISET`, Jimmer uses object fetchers with batched secondary
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
