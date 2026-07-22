@@ -2,7 +2,7 @@
 
 - **Date:** measured 2026-07-22
 - **Storm:** built from `main` at commit `8aac08da` (includes the multi-row keyless inserts, the statement-build allocation work, the generated record deconstructors, and the write-set `insertAndFetchIds` used by the graph insert), resolved as `1.13.0`
-- **Runner:** GitHub-hosted `Linux-x64-4core-16Gb-Ubuntu24` (dedicated, 4 vCPU / 16 GB, Ubuntu 24.04)
+- **Runner:** GitHub-hosted dedicated runner, 4 vCPU / 16 GB, Ubuntu 24.04
 - **Workflow run:** https://github.com/storm-orm/storm-benchmarks/actions/runs/29869688250
 - **JDK:** OpenJDK 64-Bit Server VM 21 (21.0.11+10-LTS)
 - **JMH:** 1.36, average time (`avgt`), reported in µs/op; 5 forks, 5 × 2 s warmup, 5 × 3 s measurement; published score is the fastest fork with the range to the slowest fork
