@@ -3,6 +3,7 @@ package st.orm.benchmarks.storm
 import st.orm.benchmarks.common.BenchDatabase
 import st.orm.benchmarks.common.Dataset
 import st.orm.benchmarks.common.Params
+import st.orm.Ref
 import st.orm.Scrollable
 import st.orm.core.template.SqlInterceptor
 import st.orm.template.ORMTemplate
@@ -99,6 +100,32 @@ fun main() {
             )
             visits.update(visit.copy(description = "${visit.description} (rechecked)"))
             visit.id
+        }
+    }
+
+    show("graphInsert") {
+        val graphVisits = (0 until Dataset.GRAPH_SIZE).map { seed ->
+            val owner = Owner(
+                firstName = Dataset.firstName(seed),
+                lastName = Dataset.lastName(seed),
+                address = Dataset.address(seed),
+                telephone = Dataset.telephone(seed),
+                city = City(id = 1L, name = ""),
+            )
+            val pet = Pet(
+                name = Dataset.petName(seed),
+                birthDate = Dataset.petBirthDate(seed),
+                type = refById<PetType>(1L),
+                owner = owner,
+            )
+            Visit(
+                pet = Ref.of(pet),
+                visitDate = Dataset.visitDate(seed),
+                description = Dataset.visitDescription(seed),
+            )
+        }
+        transactionBlocking {
+            orm.writeSet().insertAndFetchIds(graphVisits)
         }
     }
 
