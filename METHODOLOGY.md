@@ -61,17 +61,18 @@ Exact dependency versions are pinned in `gradle/libs.versions.toml`.
    documented, it is what production guidance for that library actually recommends, and it
    carries no semantic penalty for the workload it touches. Best practice takes precedence
    over raw speed: a trick a well-informed production team would not ship does not qualify.
-   Purpose-built entity shapes for a workload (a lazy read shape of a table, for example)
-   qualify under the same tests; where lines of code are compared, such shapes count as query
-   code of the library that defines them, since they exist to speed a query. No library is
-   forced through another library's access pattern.
-3. Libraries are free to use their natural mechanism for a workload. Hibernate uses
+   No library is forced through another library's access pattern.
+3. A library may define a purpose-built entity shape for a workload on top of its regular
+   entity for that type (a lazy read shape of the owner table, for example), subject to the
+   same three tests. Because such a shape exists to speed a query, its lines count as query
+   code rather than model code wherever lines of code are compared.
+4. Libraries are free to use their natural mechanism for a workload. Hibernate uses
    `join fetch`, jOOQ uses `MULTISET`, Jimmer uses object fetchers with batched secondary
    queries, Storm and the JDBC baseline use joins. Query counts therefore differ per
    library; they are listed per workload below.
-4. Applications of rule 2 are tracked in the table below and noted with the workloads they
+5. Applications of rules 2 and 3 are tracked in the table below and noted with the workloads they
    touch.
-5. Result shapes are equivalent across libraries per workload: the same rows, the same
+6. Result shapes are equivalent across libraries per workload: the same rows, the same
    materialized fields. A sanity check runs every workload once per trial and fails the
    benchmark if the row counts are wrong.
 
