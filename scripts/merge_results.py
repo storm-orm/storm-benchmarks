@@ -50,8 +50,8 @@ def main(results_dir: Path) -> None:
             metric = run["primaryMetric"]
             percentiles = metric.get("scorePercentiles") or {}
             # Score is the median of the five forks (each fork scored as the mean of its
-            # measurement iterations), published with the range down to the fastest fork and up
-            # to the slowest. The median is robust to individual forks landing an unlucky GC,
+            # measurement iterations), published with the fork range [fastest-slowest] alongside.
+            # The median is robust to individual forks landing an unlucky GC,
             # scheduling or JIT profile, and does not reward implementations whose forks vary
             # more, the way a fastest-fork estimator would. The raw per-fork data is committed
             # alongside, so any other estimator can be recomputed from the same artifacts; on
@@ -63,8 +63,8 @@ def main(results_dir: Path) -> None:
                 "workload": run["benchmark"].rsplit(".", 1)[-1],
                 "mode": run["mode"],
                 "score": score,
-                "down": score - fork_means[0],
-                "up": fork_means[-1] - score,
+                "min": fork_means[0],
+                "max": fork_means[-1],
                 "mean": metric["score"],
                 "error": metric["scoreError"],
                 "p50": percentiles.get("50.0"),
@@ -83,7 +83,7 @@ def main(results_dir: Path) -> None:
 
     unit = rows[0]["unit"] if rows else "us/op"
     sample_mode = rows and rows[0]["mode"] == "sample"
-    title = f"# Benchmark results ({unit}, median of 5 forks, -range to the fastest fork / +range to the slowest, lower is better"
+    title = f"# Benchmark results ({unit}, median of 5 forks [fastest–slowest], lower is better"
     title += ", p50 / p99)" if sample_mode else ")"
     lines = [
         title,
@@ -100,7 +100,7 @@ def main(results_dir: Path) -> None:
             elif sample_mode and row["p50"] is not None:
                 cells.append(f"{row['p50']:.1f} / {row['p99']:.1f}")
             else:
-                cells.append(f"{row['score']:.1f} -{row['down']:.1f} +{row['up']:.1f}")
+                cells.append(f"{row['score']:.1f} [{row['min']:.1f}–{row['max']:.1f}]")
         lines.append(f"| {workload} | " + " | ".join(cells) + " |")
     (results_dir / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))

@@ -346,8 +346,8 @@ published tables always state the runner type and the exact library versions. Re
 suite locally to verify relative results on your own hardware.
 
 The published table reports, per cell, the median of the five forks (each fork scored as the
-mean of its measurement iterations), with the range down to the fastest fork and up to the
-slowest shown alongside. The median is robust to individual forks drawing an unlucky garbage
+mean of its measurement iterations), with the fork range, fastest to slowest, in brackets
+alongside. The median is robust to individual forks drawing an unlucky garbage
 collection, scheduling or JIT profile, and it does not reward implementations whose forks vary
 more, the way an optimistic fastest-fork estimator would. Under the table-state discipline
 (per-trial `VACUUM ANALYZE`, pinned planner statistics) fork means agree closely, so the median
