@@ -60,6 +60,7 @@ public class JdbcBenchmark {
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
                 batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
         BenchDatabase.resetInsertedRows(dataSource);
+        BenchDatabase.analyze(dataSource);
     }
 
     @TearDown(Level.Iteration)

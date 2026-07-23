@@ -105,6 +105,14 @@ the literal scroll limit, the write-set dependency ordering) are defaults, not s
 - **Database**: PostgreSQL 17 (alpine image) in Docker with a tmpfs data directory and
   `fsync=off`, `synchronous_commit=off`, `full_page_writes=off`, `shared_buffers=256MB`.
   These settings trade durability for run-to-run stability, identically for every library.
+- **Planner statistics**: every fork runs `ANALYZE` at trial setup, and automatic statistics
+  collection is disabled on the container (`autovacuum_analyze_threshold` set unreachably
+  high; vacuum itself stays on). The write workloads churn enough rows that an autovacuum
+  `ANALYZE` landing mid-suite can flip cached prepared plans between the custom and generic
+  regime, moving join-heavy workloads by 2x between otherwise identical runs. The container
+  also loads `auto_explain` at a 0.1% sample rate, so the plans actually used land in the
+  container log (`results/postgres-plans.log`, part of the CI artifacts) and each run's plan
+  regimes can be verified after the fact.
 - **Connections**: one HikariCP pool per fork, 10 connections, default isolation.
   Benchmarks run single-threaded, so pool contention is not a factor.
 - **Container lifecycle**: `scripts/run.sh` starts one container for the whole suite and

@@ -44,13 +44,22 @@ if [[ -z "${BENCH_JDBC_URL:-}" ]]; then
     # Publish on all interfaces, like Testcontainers: loopback-only binds (-p 127.0.0.1::5432)
     # go through a slower Docker Desktop port-forwarder path on macOS (measured 380 vs 156 us
     # round-trip). The database is a throwaway with dummy credentials, up only for the run.
+    #
+    # Statistics discipline: every trial setup refreshes planner statistics (BenchDatabase.analyze),
+    # and the unreachable autovacuum_analyze_threshold keeps autovacuum's automatic ANALYZE from
+    # flipping cached prepared plans mid-trial. Vacuum itself stays on to reclaim churned rows.
+    # auto_explain samples 0.1% of executions so the plans actually used (including the prepared
+    # statement custom-vs-generic choice) land in the container log for post-run inspection.
     CONTAINER=$(docker run -d \
         -e POSTGRES_DB=bench -e POSTGRES_USER=bench -e POSTGRES_PASSWORD=bench \
         --tmpfs /var/lib/postgresql/data \
         -p 5432 \
         "$IMAGE" \
         postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
-                 -c shared_buffers=256MB -c max_connections=50)
+                 -c shared_buffers=256MB -c max_connections=50 \
+                 -c autovacuum_analyze_threshold=2000000000 \
+                 -c shared_preload_libraries=auto_explain \
+                 -c auto_explain.log_min_duration=0 -c auto_explain.sample_rate=0.001)
     PORT=$(docker port "$CONTAINER" 5432 | grep '0.0.0.0' | head -1 | cut -d: -f2)
     BENCH_JDBC_URL="jdbc:postgresql://127.0.0.1:${PORT}/bench"
     for i in $(seq 1 60); do
@@ -76,6 +85,12 @@ mkdir -p results
 for module in "${MODULES[@]}"; do
     cp "$module/build/results/$module.json" results/
 done
+
+# The container log carries the sampled auto_explain plans; keep it with the results so plan
+# regimes can be verified per run. Skipped when running against an externally managed database.
+if [[ -n "$CONTAINER" ]]; then
+    docker logs "$CONTAINER" > results/postgres-plans.log 2>&1
+fi
 
 python3 scripts/merge_results.py results
 echo

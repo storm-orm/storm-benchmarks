@@ -63,7 +63,17 @@ public final class BenchDatabase {
                             "-c", "synchronous_commit=off",
                             "-c", "full_page_writes=off",
                             "-c", "shared_buffers=256MB",
-                            "-c", "max_connections=50");
+                            "-c", "max_connections=50",
+                            // Statistics discipline (mirrors scripts/run.sh): analyze() refreshes planner
+                            // statistics at trial setup, and the unreachable threshold keeps autovacuum's
+                            // automatic ANALYZE from flipping cached plans mid-trial. Vacuum itself stays on
+                            // to reclaim the rows churned by the write workloads.
+                            "-c", "autovacuum_analyze_threshold=2000000000",
+                            // Sampled plan logging, so the plans actually used (including the prepared
+                            // statement custom-vs-generic choice) can be read from the container log.
+                            "-c", "shared_preload_libraries=auto_explain",
+                            "-c", "auto_explain.log_min_duration=0",
+                            "-c", "auto_explain.sample_rate=0.001");
             container.start();
             Runtime.getRuntime().addShutdownHook(new Thread(container::stop));
             url = container.getJdbcUrl();
@@ -115,6 +125,21 @@ public final class BenchDatabase {
             statement.executeUpdate("DELETE FROM owner WHERE id > " + Dataset.OWNERS);
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to reset inserted rows", e);
+        }
+    }
+
+    /**
+     * Refreshes planner statistics; runs untimed at trial setup so every fork measures against statistics
+     * gathered from the same reset dataset. Automatic statistics collection is disabled on the benchmark
+     * container: the write workloads churn enough rows that an autovacuum ANALYZE landing mid-trial can flip
+     * cached prepared plans between the custom and generic regime, moving join-heavy workloads by 2x.
+     */
+    public static void analyze(DataSource dataSource) {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("ANALYZE");
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to analyze benchmark database", e);
         }
     }
 

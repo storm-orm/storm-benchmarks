@@ -87,3 +87,4 @@ jobs:
           path: |
             results/*.json
             results/summary.md
+            results/postgres-plans.log

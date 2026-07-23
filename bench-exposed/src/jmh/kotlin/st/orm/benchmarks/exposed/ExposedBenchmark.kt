@@ -63,6 +63,7 @@ open class ExposedBenchmark {
             keyset(), dynamic(), multiStatement(), graphInsert(),
         )
         BenchDatabase.resetInsertedRows(dataSource)
+        BenchDatabase.analyze(dataSource)
     }
 
     @TearDown(Level.Iteration)

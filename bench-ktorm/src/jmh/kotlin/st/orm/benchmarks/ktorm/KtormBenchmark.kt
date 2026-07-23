@@ -78,6 +78,7 @@ open class KtormBenchmark {
             keyset(), dynamic(), multiStatement(), graphInsert(),
         )
         BenchDatabase.resetInsertedRows(dataSource)
+        BenchDatabase.analyze(dataSource)
     }
 
     @TearDown(Level.Iteration)
