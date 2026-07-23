@@ -65,7 +65,7 @@ open class StormBenchmark {
             projection(), batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(),
             graphInsert())
         BenchDatabase.resetInsertedRows(dataSource)
-        BenchDatabase.analyze(dataSource)
+        BenchDatabase.vacuumAnalyze(dataSource)
     }
 
     @TearDown(Level.Iteration)

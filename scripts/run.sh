@@ -45,9 +45,11 @@ if [[ -z "${BENCH_JDBC_URL:-}" ]]; then
     # go through a slower Docker Desktop port-forwarder path on macOS (measured 380 vs 156 us
     # round-trip). The database is a throwaway with dummy credentials, up only for the run.
     #
-    # Statistics discipline: every trial setup refreshes planner statistics (BenchDatabase.analyze),
-    # and the unreachable autovacuum_analyze_threshold keeps autovacuum's automatic ANALYZE from
-    # flipping cached prepared plans mid-trial. Vacuum itself stays on to reclaim churned rows.
+    # Statistics discipline: every trial setup runs VACUUM ANALYZE (BenchDatabase.vacuumAnalyze),
+    # settling the tables and refreshing planner statistics so no fork inherits cleanup debt or
+    # stale statistics from the workload before it. The unreachable autovacuum_analyze_threshold
+    # keeps autovacuum's automatic ANALYZE from flipping cached prepared plans mid-trial;
+    # autovacuum's vacuum stays on as a backstop for within-trial churn.
     # auto_explain samples 0.1% of executions so the plans actually used (including the prepared
     # statement custom-vs-generic choice) land in the container log for post-run inspection.
     CONTAINER=$(docker run -d \

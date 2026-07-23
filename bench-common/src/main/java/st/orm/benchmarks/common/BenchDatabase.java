@@ -64,10 +64,10 @@ public final class BenchDatabase {
                             "-c", "full_page_writes=off",
                             "-c", "shared_buffers=256MB",
                             "-c", "max_connections=50",
-                            // Statistics discipline (mirrors scripts/run.sh): analyze() refreshes planner
-                            // statistics at trial setup, and the unreachable threshold keeps autovacuum's
-                            // automatic ANALYZE from flipping cached plans mid-trial. Vacuum itself stays on
-                            // to reclaim the rows churned by the write workloads.
+                            // Statistics discipline (mirrors scripts/run.sh): vacuumAnalyze() settles the
+                            // tables and refreshes planner statistics at trial setup, and the unreachable
+                            // threshold keeps autovacuum's automatic ANALYZE from flipping cached plans
+                            // mid-trial. Autovacuum's vacuum stays on as a backstop for within-trial churn.
                             "-c", "autovacuum_analyze_threshold=2000000000",
                             // Sampled plan logging, so the plans actually used (including the prepared
                             // statement custom-vs-generic choice) can be read from the container log.
@@ -129,17 +129,20 @@ public final class BenchDatabase {
     }
 
     /**
-     * Refreshes planner statistics; runs untimed at trial setup so every fork measures against statistics
-     * gathered from the same reset dataset. Automatic statistics collection is disabled on the benchmark
-     * container: the write workloads churn enough rows that an autovacuum ANALYZE landing mid-trial can flip
-     * cached prepared plans between the custom and generic regime, moving join-heavy workloads by 2x.
+     * Settles the physical tables and refreshes planner statistics; runs untimed at trial setup so every
+     * fork measures against the same starting state regardless of which workload ran before it. The vacuum
+     * pays the cleanup debt left by a preceding write-heavy workload (dead tuples that would otherwise slow
+     * the earliest forks of the next benchmark while autovacuum catches up), and the statistics refresh is
+     * needed because automatic statistics collection is disabled on the benchmark container: the write
+     * workloads churn enough rows that an autovacuum ANALYZE landing mid-trial can flip cached prepared
+     * plans between the custom and generic regime, moving join-heavy workloads by 2x.
      */
-    public static void analyze(DataSource dataSource) {
+    public static void vacuumAnalyze(DataSource dataSource) {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
-            statement.execute("ANALYZE");
+            statement.execute("VACUUM ANALYZE");
         } catch (SQLException e) {
-            throw new IllegalStateException("Failed to analyze benchmark database", e);
+            throw new IllegalStateException("Failed to vacuum and analyze benchmark database", e);
         }
     }
 

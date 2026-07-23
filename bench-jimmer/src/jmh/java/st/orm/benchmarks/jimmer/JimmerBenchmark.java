@@ -64,7 +64,7 @@ public class JimmerBenchmark {
         Sanity.verify(singleRowById(), joinWithMapping10(), joinWithMapping100(), joinWithMapping1000(), projection(),
                 batchInsert(), updateById(), objectGraph(), keyset(), dynamic(), multiStatement(), graphInsert());
         BenchDatabase.resetInsertedRows(dataSource);
-        BenchDatabase.analyze(dataSource);
+        BenchDatabase.vacuumAnalyze(dataSource);
     }
 
     @TearDown(Level.Iteration)
