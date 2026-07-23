@@ -19,18 +19,21 @@ LIBRARY_NAMES = {
     "bench-jimmer": "Jimmer",
 }
 
+# Reads light to heavy, then writes: the presentation order shared with the website's
+# benchmarks page. Execution order is unrelated (JMH runs benchmarks alphabetically), and
+# since every trial starts from a vacuumed, freshly analyzed table it does not need to be.
 WORKLOAD_ORDER = [
     "baseline",
     "singleRowById",
+    "projection",
+    "keyset",
+    "dynamic",
     "joinWithMapping10",
     "joinWithMapping100",
     "joinWithMapping1000",
-    "projection",
+    "objectGraph",
     "batchInsert",
     "updateById",
-    "objectGraph",
-    "keyset",
-    "dynamic",
     "multiStatement",
     "graphInsert",
 ]
