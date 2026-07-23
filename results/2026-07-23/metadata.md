@@ -6,7 +6,7 @@
 - **Runner:** GitHub-hosted dedicated runner, 4 vCPU / 16 GB, Ubuntu 24.04
 - **Workflow run:** https://github.com/storm-orm/storm-benchmarks/actions/runs/30016426654
 - **JDK:** OpenJDK 64-Bit Server VM 21 (21.0.11+10-LTS)
-- **JMH:** 1.36, average time (`avgt`), reported in µs/op; 5 forks, 5 × 2 s warmup, 5 × 3 s measurement; published score is the fastest fork with the range to the slowest fork
+- **JMH:** 1.36, average time (`avgt`), reported in µs/op; 5 forks, 5 × 2 s warmup, 5 × 3 s measurement; published score is the median of the five forks, with the fork range [fastest–slowest] alongside
 - **Database:** PostgreSQL 17-alpine started by `scripts/run.sh` (one tuned container for the whole suite), pgjdbc 42.7.13, shared HikariCP pool
 
 ## Library versions
