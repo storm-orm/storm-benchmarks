@@ -49,21 +49,22 @@ def main(results_dir: Path) -> None:
         for run in json.loads(path.read_text()):
             metric = run["primaryMetric"]
             percentiles = metric.get("scorePercentiles") or {}
-            # Score is the fastest fork (each fork scored as the mean of its measurement
-            # iterations) and the spread is the full range up to the slowest fork. Benchmark noise
-            # is one-sided: GC, scheduling and an unfavorable JIT compilation plan only ever add
-            # time, so the fastest fork is the estimate of the framework's intrinsic cost least
-            # contaminated by the harness, and the most reproducible across runs. The range keeps
-            # the disagreement between forks visible instead of folding it into the score.
+            # Score is the median of the five forks (each fork scored as the mean of its
+            # measurement iterations), published with the range down to the fastest fork and up
+            # to the slowest. The median is robust to individual forks landing an unlucky GC,
+            # scheduling or JIT profile, and does not reward implementations whose forks vary
+            # more, the way a fastest-fork estimator would. The raw per-fork data is committed
+            # alongside, so any other estimator can be recomputed from the same artifacts; on
+            # the published runs the choice moves no leading-group membership.
             fork_means = sorted(statistics.mean(fork) for fork in metric["rawData"])
-            score = fork_means[0]
-            spread = fork_means[-1] - fork_means[0]
+            score = statistics.median(fork_means)
             rows.append({
                 "library": library,
                 "workload": run["benchmark"].rsplit(".", 1)[-1],
                 "mode": run["mode"],
                 "score": score,
-                "spread": spread,
+                "down": score - fork_means[0],
+                "up": fork_means[-1] - score,
                 "mean": metric["score"],
                 "error": metric["scoreError"],
                 "p50": percentiles.get("50.0"),
@@ -82,7 +83,7 @@ def main(results_dir: Path) -> None:
 
     unit = rows[0]["unit"] if rows else "us/op"
     sample_mode = rows and rows[0]["mode"] == "sample"
-    title = f"# Benchmark results ({unit}, fastest of 5 forks + range to the slowest fork, lower is better"
+    title = f"# Benchmark results ({unit}, median of 5 forks, -range to the fastest fork / +range to the slowest, lower is better"
     title += ", p50 / p99)" if sample_mode else ")"
     lines = [
         title,
@@ -99,7 +100,7 @@ def main(results_dir: Path) -> None:
             elif sample_mode and row["p50"] is not None:
                 cells.append(f"{row['p50']:.1f} / {row['p99']:.1f}")
             else:
-                cells.append(f"{row['score']:.1f} +{row['spread']:.1f}")
+                cells.append(f"{row['score']:.1f} -{row['down']:.1f} +{row['up']:.1f}")
         lines.append(f"| {workload} | " + " | ".join(cells) + " |")
     (results_dir / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
