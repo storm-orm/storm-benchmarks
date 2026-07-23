@@ -150,6 +150,49 @@ Fetch one `visit` row by primary key. The `pet` foreign key stays a reference (l
 `Ref`, id-only object, or plain id, depending on the library); no join is executed.
 1 query per operation for every library.
 
+### projection
+
+Same join shape, but only three columns (`pet.name`, `owner.last_name`, `city.name`)
+mapped into a flat row type. 1 query per operation for every library. The delta against
+`joinWithMapping` isolates entity-materialization cost from query cost.
+
+### keyset
+
+Fetch one page of `PAGE_SIZE` (20) pets by keyset (seek) pagination: `WHERE id > cursor
+ORDER BY id LIMIT 20`, with owner and city materialized (the same 3-table graph as
+`joinWithMapping`). Keyset paging is the performant alternative to offset paging, which is why
+this variant is measured: the cursor moves through the id space with no `OFFSET` scan cost, so
+the page fetch stays flat regardless of how deep into the list it is. Each library uses its
+keyset idiom: Storm its `scroll(Scrollable.of(...))` cursor API (its recommended scroll form,
+as opposed to page/offset paging), jOOQ its native `ORDER BY ... SEEK(cursor) LIMIT`, and JDBC,
+Hibernate, Exposed, Exposed DAO, Ktorm, and Jimmer an explicit `WHERE id > cursor ORDER BY id
+LIMIT 20`. 1 query per operation for every library except Exposed DAO and Jimmer, which add
+their batched association queries. The cursor cycles so successive pages walk the id space.
+
+The page size is inlined as a literal wherever the library can express it: Storm, JDBC, and Exposed by
+construction, Hibernate through the HQL `limit` clause, and jOOQ through `DSL.inline` (rule 2; the page size
+is a constant of the workload, not data). The reason: the execution plan is the same either way, but
+PostgreSQL never adopts a cached generic plan when the row count arrives as a bind parameter (the unknown
+count inflates the generic plan's cost estimate), so it replans the three-table join on every execution, at a
+cost comparable to executing it. Verified with `PREPARE`/`EXECUTE`: after any number of executions the
+parameter form still shows a custom plan with folded constants, while the literal form switches to the cached
+generic plan. Ktorm's `take(n)` has no literal form and keeps the bind parameter; Jimmer's `limit(int)` also
+binds, on a single-table statement where planning is cheap.
+
+### dynamic
+
+A filtered pet search whose predicate set is built at runtime. A city equality is always
+applied (bounding the result to one city's pets), and a `birth_date >=` range and a `type_id =`
+equality are toggled on and off across a four-way cycle, so the SQL text and bind-parameter
+list differ from call to call. This measures query-construction cost with runtime-variable
+predicates, the shape of a search form or filter panel: JDBC and Hibernate assemble the
+statement text conditionally, jOOQ composes a `Condition`, Storm composes a `PredicateBuilder`,
+Exposed and Exposed DAO build an `Op<Boolean>`, Ktorm reduces a condition list, and Jimmer
+relies on its null-predicate-ignoring `where()`. 1 query per operation for every library. The
+result is a flat projection (`pet.name`, `owner.last_name`, `city.name`). The sanity check
+always sees the first combination (city only), so its row count is a stable
+`PETS_PER_CITY`; the measured calls average over the whole cycle.
+
 ### joinWithMapping10 / joinWithMapping100 / joinWithMapping1000
 
 Fetch a window of 10, 100, or 1000 consecutive pets (by id range) with owner and city fully materialized
@@ -169,11 +212,17 @@ decision independently. A run can therefore place implementations on different s
 of the cached generic plan. Read the 100-row column with that caveat; the 1000-row variant, where the regimes
 converge, is the cleaner read of per-row mapping cost.
 
-### projection
+### objectGraph
 
-Same join shape, but only three columns (`pet.name`, `owner.last_name`, `city.name`)
-mapped into a flat row type. 1 query per operation for every library. The delta against
-`joinWithMapping` isolates entity-materialization cost from query cost.
+Load the 50 owners of one city, each with their list of pets (an N+1-prone shape). Every
+library uses its recommended efficient strategy: Hibernate `join fetch` on the collection,
+jOOQ `MULTISET`, Jimmer a fetcher with a batched list association, Exposed DAO `with(...)`
+eager loading (2 queries), and JDBC, Exposed (DSL), Ktorm, and Storm one join grouped in memory
+(Storm selects the owner-pet row pair through its eagerly mapped graph in a single query;
+Ktorm queries the pet side joined to owner and city and groups by owner, as its docs show for
+one-to-many, which it does not model as an entity property).
+This workload compares each library's sanctioned answer to the N+1 problem, not a naive
+lazy loop.
 
 ### batchInsert
 
@@ -218,55 +267,6 @@ dedicated record mapping the owner table whose city is a `Ref` foreign key, its 
 association, and Ktorm reads the owner with `withReferences = false` so the city reference is not joined.
 Storm's eager aggregate shape, which joins the city on every read, is exercised by the read
 workloads instead.
-
-### objectGraph
-
-Load the 50 owners of one city, each with their list of pets (an N+1-prone shape). Every
-library uses its recommended efficient strategy: Hibernate `join fetch` on the collection,
-jOOQ `MULTISET`, Jimmer a fetcher with a batched list association, Exposed DAO `with(...)`
-eager loading (2 queries), and JDBC, Exposed (DSL), Ktorm, and Storm one join grouped in memory
-(Storm selects the owner-pet row pair through its eagerly mapped graph in a single query;
-Ktorm queries the pet side joined to owner and city and groups by owner, as its docs show for
-one-to-many, which it does not model as an entity property).
-This workload compares each library's sanctioned answer to the N+1 problem, not a naive
-lazy loop.
-
-### keyset
-
-Fetch one page of `PAGE_SIZE` (20) pets by keyset (seek) pagination: `WHERE id > cursor
-ORDER BY id LIMIT 20`, with owner and city materialized (the same 3-table graph as
-`joinWithMapping`). Keyset paging is the performant alternative to offset paging, which is why
-this variant is measured: the cursor moves through the id space with no `OFFSET` scan cost, so
-the page fetch stays flat regardless of how deep into the list it is. Each library uses its
-keyset idiom: Storm its `scroll(Scrollable.of(...))` cursor API (its recommended scroll form,
-as opposed to page/offset paging), jOOQ its native `ORDER BY ... SEEK(cursor) LIMIT`, and JDBC,
-Hibernate, Exposed, Exposed DAO, Ktorm, and Jimmer an explicit `WHERE id > cursor ORDER BY id
-LIMIT 20`. 1 query per operation for every library except Exposed DAO and Jimmer, which add
-their batched association queries. The cursor cycles so successive pages walk the id space.
-
-The page size is inlined as a literal wherever the library can express it: Storm, JDBC, and Exposed by
-construction, Hibernate through the HQL `limit` clause, and jOOQ through `DSL.inline` (rule 2; the page size
-is a constant of the workload, not data). The reason: the execution plan is the same either way, but
-PostgreSQL never adopts a cached generic plan when the row count arrives as a bind parameter (the unknown
-count inflates the generic plan's cost estimate), so it replans the three-table join on every execution, at a
-cost comparable to executing it. Verified with `PREPARE`/`EXECUTE`: after any number of executions the
-parameter form still shows a custom plan with folded constants, while the literal form switches to the cached
-generic plan. Ktorm's `take(n)` has no literal form and keeps the bind parameter; Jimmer's `limit(int)` also
-binds, on a single-table statement where planning is cheap.
-
-### dynamic
-
-A filtered pet search whose predicate set is built at runtime. A city equality is always
-applied (bounding the result to one city's pets), and a `birth_date >=` range and a `type_id =`
-equality are toggled on and off across a four-way cycle, so the SQL text and bind-parameter
-list differ from call to call. This measures query-construction cost with runtime-variable
-predicates, the shape of a search form or filter panel: JDBC and Hibernate assemble the
-statement text conditionally, jOOQ composes a `Condition`, Storm composes a `PredicateBuilder`,
-Exposed and Exposed DAO build an `Op<Boolean>`, Ktorm reduces a condition list, and Jimmer
-relies on its null-predicate-ignoring `where()`. 1 query per operation for every library. The
-result is a flat projection (`pet.name`, `owner.last_name`, `city.name`). The sanity check
-always sees the first combination (city only), so its row count is a stable
-`PETS_PER_CITY`; the measured calls average over the whole cycle.
 
 ### multiStatement
 
