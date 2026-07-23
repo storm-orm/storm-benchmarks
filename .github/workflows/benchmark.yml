@@ -29,7 +29,7 @@ permissions:
 jobs:
   benchmark:
     runs-on: ${{ inputs.runner }}
-    timeout-minutes: 240
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
