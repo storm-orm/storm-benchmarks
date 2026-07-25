@@ -13,4 +13,4 @@ measures and the fairness rules.
 
 | Run | Storm | Runner | Notes |
 |---|---|---|---|
-| [2026-07-23](2026-07-23/) | `main` @ 3d4cb8e2 (1.13.0) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04 | canonical run: full table-state discipline (per-trial `VACUUM ANALYZE`, pinned statistics, sampled plan log); see metadata for the discipline history |
+| [2026-07-25](2026-07-25/) | `main` @ 5556faea (1.13.0) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04 | full table-state discipline (per-trial `VACUUM ANALYZE`, pinned statistics, sampled plan log); see metadata |
