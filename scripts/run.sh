@@ -8,6 +8,8 @@
 #   scripts/run.sh --quick       # quick smoke run (~5 minutes, numbers are indicative only)
 #   scripts/run.sh --sample      # sample mode: p50/p99 latency percentiles instead of averages
 #   scripts/run.sh --threads N   # run benchmarks with N concurrent threads
+#   scripts/run.sh --modules "bench-jdbc bench-storm"   # run only these modules (A/B)
+#   scripts/run.sh --out results-ab/base                # write results to a custom dir
 #
 # Environment:
 #   BENCH_JDBC_URL   use an existing PostgreSQL instead of starting a container
@@ -19,12 +21,15 @@ cd "$(dirname "$0")/.."
 MODULES=(bench-jdbc bench-storm bench-hibernate bench-jooq bench-exposed bench-exposed-dao bench-ktorm bench-jimmer)
 # Plain string, not an array: empty arrays trip `set -u` on macOS's bash 3.2.
 GRADLE_FLAGS=""
+OUT_DIR="results"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --quick) GRADLE_FLAGS="$GRADLE_FLAGS -Pquick"; shift ;;
         --sample) GRADLE_FLAGS="$GRADLE_FLAGS -Psample"; shift ;;
         --ab-gc) GRADLE_FLAGS="$GRADLE_FLAGS -PabGc"; shift ;;
         --threads) GRADLE_FLAGS="$GRADLE_FLAGS -PbenchThreads=$2"; shift 2 ;;
+        --modules) read -r -a MODULES <<< "$2"; shift 2 ;;
+        --out) OUT_DIR="$2"; shift 2 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -83,17 +88,19 @@ for module in "${MODULES[@]}"; do
         --console=plain --max-workers=1
 done
 
-mkdir -p results
+mkdir -p "$OUT_DIR"
 for module in "${MODULES[@]}"; do
-    cp "$module/build/results/$module.json" results/
+    cp "$module/build/results/$module.json" "$OUT_DIR/"
 done
 
 # The container log carries the sampled auto_explain plans; keep it with the results so plan
 # regimes can be verified per run. Skipped when running against an externally managed database.
 if [[ -n "$CONTAINER" ]]; then
-    docker logs "$CONTAINER" > results/postgres-plans.log 2>&1
+    docker logs "$CONTAINER" > "$OUT_DIR/postgres-plans.log" 2>&1
 fi
 
-python3 scripts/merge_results.py results
+python3 scripts/merge_results.py "$OUT_DIR"
+# Stamp the run's hardware/software fingerprint so cross-run comparability is decidable.
+scripts/capture_env.sh "$OUT_DIR"
 echo
-echo "Results written to results/combined.json and results/summary.md"
+echo "Results written to $OUT_DIR/combined.json and $OUT_DIR/summary.md"
