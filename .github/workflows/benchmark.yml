@@ -22,12 +22,20 @@ on:
         description: Storm version to resolve (defaults to the version in gradle/libs.versions.toml)
         type: string
         required: false
+      baseline_ref:
+        description: "A/B: a second storm-framework ref to compare storm_ref against, back-to-back on ONE runner (the only sound before/after; leave empty for a normal full-field run)."
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
+  # Normal full-field run: every library on one instance. Within-run only -- the JDBC
+  # baseline is the fixed reference; absolute us/op are not comparable to other runs.
   benchmark:
+    if: ${{ inputs.baseline_ref == '' }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 360
     steps:
@@ -59,6 +67,10 @@ jobs:
           ref: ${{ inputs.storm_ref }}
           path: storm-framework
 
+      - name: Record storm-framework sha
+        id: stormsha
+        run: echo "sha=$(git -C storm-framework rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build Storm into the local Maven repository
         working-directory: storm-framework
         run: ./mvnw -B -ntp -DskipTests -Dmaven.javadoc.skip=true install -Drevision=${{ steps.storm.outputs.version }}
@@ -70,15 +82,36 @@ jobs:
         run: ./gradlew --no-daemon publishToMavenLocal -Pversion=${{ steps.storm.outputs.version }}
 
       - name: Run benchmarks
+        env:
+          BENCH_STORM_REF: ${{ inputs.storm_ref }}
+          BENCH_STORM_SHA: ${{ steps.stormsha.outputs.sha }}
+          BENCH_STORM_VERSION: ${{ steps.storm.outputs.version }}
         run: |
+          export BENCH_SUITE_SHA="$(git rev-parse HEAD)"
+          export BENCH_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           if [ "${{ inputs.mode }}" = "quick" ]; then
             scripts/run.sh --quick
           else
             scripts/run.sh
           fi
 
+      # Advisory: flags (does not fail) when this run's hardware differs from the published
+      # run, so its absolute numbers are not mistaken for a cross-run improvement.
+      - name: Guard against cross-run hardware drift
+        run: python3 scripts/check_baseline_drift.py results
+
       - name: Publish job summary
-        run: cat results/summary.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo ""
+            echo "<details><summary>run environment</summary>"
+            echo ""
+            echo '```json'
+            cat results/env.json
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -87,4 +120,90 @@ jobs:
           path: |
             results/*.json
             results/summary.md
+            results/env.json
             results/postgres-plans.log
+
+  # A/B: build two storm-framework refs and benchmark Storm (plus the JDBC floor) for each,
+  # back-to-back on the SAME instance. Because the hardware is identical by construction, the
+  # delta is a real code effect. This is the supported way to measure a perf change.
+  ab:
+    if: ${{ inputs.baseline_ref != '' }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve Storm version
+        id: storm
+        run: echo "version=$(sed -n 's/^storm = "\(.*\)"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout baseline_ref
+        uses: actions/checkout@v4
+        with:
+          repository: storm-orm/storm-framework
+          ref: ${{ inputs.baseline_ref }}
+          path: storm-base
+
+      - name: Checkout storm_ref
+        uses: actions/checkout@v4
+        with:
+          repository: storm-orm/storm-framework
+          ref: ${{ inputs.storm_ref }}
+          path: storm-cand
+
+      # Two builds coexist in the local Maven repo under distinct versions so the bench modules
+      # resolve each ref without a cache collision.
+      - name: Build both refs into the local Maven repository
+        id: build
+        run: |
+          set -e
+          base_v="${{ steps.storm.outputs.version }}-ab-base"
+          cand_v="${{ steps.storm.outputs.version }}-ab-cand"
+          echo "base_v=$base_v" >> "$GITHUB_OUTPUT"
+          echo "cand_v=$cand_v" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(git -C storm-base rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "cand_sha=$(git -C storm-cand rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          ( cd storm-base && ./mvnw -B -ntp -DskipTests -Dmaven.javadoc.skip=true install -Drevision="$base_v" )
+          ( cd storm-base/storm-gradle-plugin && ./gradlew --no-daemon publishToMavenLocal -Pversion="$base_v" )
+          ( cd storm-cand && ./mvnw -B -ntp -DskipTests -Dmaven.javadoc.skip=true install -Drevision="$cand_v" )
+          ( cd storm-cand/storm-gradle-plugin && ./gradlew --no-daemon publishToMavenLocal -Pversion="$cand_v" )
+
+      - name: Benchmark baseline_ref (JDBC floor + Storm)
+        env:
+          BENCH_STORM_REF: ${{ inputs.baseline_ref }}
+          BENCH_STORM_SHA: ${{ steps.build.outputs.base_sha }}
+          BENCH_STORM_VERSION: ${{ steps.build.outputs.base_v }}
+        run: |
+          export BENCH_SUITE_SHA="$(git rev-parse HEAD)"
+          export BENCH_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sed -i 's/^storm = ".*"/storm = "${{ steps.build.outputs.base_v }}"/' gradle/libs.versions.toml
+          scripts/run.sh --modules "bench-jdbc bench-storm" --out results-ab/base
+
+      - name: Benchmark storm_ref (Storm)
+        env:
+          BENCH_STORM_REF: ${{ inputs.storm_ref }}
+          BENCH_STORM_SHA: ${{ steps.build.outputs.cand_sha }}
+          BENCH_STORM_VERSION: ${{ steps.build.outputs.cand_v }}
+        run: |
+          export BENCH_SUITE_SHA="$(git rev-parse HEAD)"
+          export BENCH_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          sed -i 's/^storm = ".*"/storm = "${{ steps.build.outputs.cand_v }}"/' gradle/libs.versions.toml
+          scripts/run.sh --modules "bench-storm" --out results-ab/cand
+
+      - name: Compare A/B (same instance)
+        run: |
+          python3 scripts/compare_ab.py results-ab/base results-ab/cand --out results-ab/delta.md
+          cat results-ab/delta.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload A/B results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-ab
+          path: results-ab/**
