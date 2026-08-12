@@ -8,6 +8,7 @@ import st.orm.Scrollable
 import st.orm.core.template.SqlInterceptor
 import st.orm.template.ORMTemplate
 import st.orm.template.PredicateBuilder
+import st.orm.template.and
 import st.orm.template.eq
 import st.orm.template.greater
 import st.orm.template.greaterEq
