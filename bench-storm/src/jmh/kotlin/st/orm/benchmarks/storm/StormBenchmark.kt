@@ -23,6 +23,7 @@ import st.orm.repository.EntityRepository
 import st.orm.repository.select
 import st.orm.template.ORMTemplate
 import st.orm.template.PredicateBuilder
+import st.orm.template.and
 import st.orm.template.eq
 import st.orm.template.greater
 import st.orm.template.greaterEq
