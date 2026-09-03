@@ -17,3 +17,16 @@ fairness rules.
 |---|---|---|---|
 | [2026-09-03](2026-09-03/) | 1.14.0 (`v1.14.0` @ c128ac47) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04, AMD EPYC 7763 | current. JDBC baseline 140.7 µs/op: a slower instance than the run below, so the two tables are not cell-comparable |
 | [2026-07-25](2026-07-25/) | `main` @ 5556faea (1.13.0) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04 | JDBC baseline 83.6 µs/op. Full table-state discipline (per-trial `VACUUM ANALYZE`, pinned statistics, sampled plan log); see metadata |
+
+## Reproducibility
+
+[`2026-09-03-repeat/`](2026-09-03-repeat/) is a second execution of the whole suite, unchanged, on
+an equivalent instance (JDBC baseline 138.6 against 140.7 µs/op, same CPU model). It is not a
+published dataset and no figure is quoted from it; it exists to measure how much of a difference
+between two libraries is the libraries and how much is the run.
+
+Individual scores move by about 1%, which is enough to reorder a close group but not enough to
+change the shape of the field: a 3% band around the fastest framework sorts the twelve workloads
+into the same three groups, workload for workload, in both runs. That is why published claims
+state a leading group rather than a ranking inside it. See
+[Measured precision](../METHODOLOGY.md#measured-precision).

@@ -364,6 +364,32 @@ no leading-group membership in any workload. The rule is applied to every implem
 every workload identically, and the raw per-fork data is published alongside each table, so any
 other estimator can be recomputed from the same artifacts.
 
+## Measured precision
+
+The suite has been run twice on equivalent hardware with nothing changed between the executions,
+so the size of a difference worth reporting is measured rather than assumed. The repeat is
+published under [`results/2026-09-03-repeat/`](results/2026-09-03-repeat/) with its own metadata;
+no figure is quoted from it.
+
+Individual scores move by about 1% between the two runs (median absolute change per library 0.6%
+to 1.5%, worst case 6.5%). That is enough to reorder a close group: counting outright wins, Storm
+takes eight of twelve workloads on the published run and six on the repeat, with the winner
+changing on the projection, the update and the create-then-amend. Nothing changed but the run.
+Those three workloads are decided inside 1.3%, so the ordering there records which way the noise
+fell.
+
+What does reproduce is the shape of the field. Sorting each workload by a 3% band around the
+fastest framework gives the identical partition in both runs, with the same workloads in each
+group: five where Storm is alone at the front with nothing within 3%, six where the leaders are
+level, and one that goes to jOOQ. Every workload is either inside 1.3% or clear by more than
+4.0%, and nothing lands between, so the band sits in an empty stretch of the distribution and 2%,
+3% or 4% partition the field identically.
+
+Two consequences follow, and both are applied to every published claim. A difference smaller than
+the band is reported as a shared lead rather than a ranking, because naming a winner inside it
+records noise. And a claim derived from one run is checked against the other before it is
+published, so a figure that turns on which run shipped does not reach a reader.
+
 ## Known caveats
 
 - Loopback round-trip time (roughly 50-100 us) is part of every score and compresses
