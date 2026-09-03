@@ -1,6 +1,9 @@
 pluginManagement {
     repositories {
-        // Storm 1.13.0 is resolved from mavenLocal until the release lands on Maven Central.
+        // mavenLocal() first so a Storm build installed by the benchmark workflow wins over the
+        // released artifact of the same version: CI checks out the storm-framework ref under test,
+        // installs it as the version pinned in libs.versions.toml, and benchmarks that. Released
+        // versions resolve from Maven Central when nothing local shadows them.
         mavenLocal()
         gradlePluginPortal()
         mavenCentral()

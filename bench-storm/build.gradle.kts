@@ -15,8 +15,10 @@ configurations["jmhRuntimeOnly"].extendsFrom(configurations["runtimeOnly"])
 dependencies {
     implementation(project(":bench-common"))
     runtimeOnly(libs.storm.postgresql)
-    // storm-core is already a runtime dependency via the st.orm plugin; the jmh
-    // source set also compiles against it for the SQL-printing utility.
+    // Storm 1.14 keeps the engine off the application's compile classpath, so the benchmarks
+    // compile against the storm-kotlin facade alone and the st.orm plugin supplies storm-core at
+    // runtime. Only the jmh source set opts back in, for the engine-level SqlInterceptor printSql
+    // uses to dump the generated statements.
     jmhImplementation(libs.storm.core)
 }
 
