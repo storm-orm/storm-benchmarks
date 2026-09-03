@@ -58,8 +58,9 @@ jobs:
         id: storm
         run: echo "version=$(sed -n 's/^storm = "\(.*\)"/\1/p' gradle/libs.versions.toml)" >> "$GITHUB_OUTPUT"
 
-      # Storm is not yet on Maven Central, so build it from source into the local Maven repository. This also lets
-      # the suite benchmark any unreleased storm-framework ref, not only published versions.
+      # Build the requested ref from source into the local Maven repository, which settings.gradle.kts
+      # consults first. This lets the suite benchmark any storm-framework ref, not only published
+      # versions, and pins the run to the exact commit recorded in the results metadata.
       - name: Checkout storm-framework
         uses: actions/checkout@v4
         with:

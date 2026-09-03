@@ -271,15 +271,22 @@ workloads instead.
 ### multiStatement
 
 One transactional unit of work with a data dependency between statements: insert a `visit`,
-obtain the persisted entity, then update its description, all inside one transaction. This is
-the shape of a create-then-amend endpoint, and each library obtains the just-inserted row its
-natural way: Hibernate and the entity/DAO libraries (Exposed DAO, Ktorm, Jimmer, Storm) get the
-persisted entity back from the insert (a managed instance, a populated draft, `insertAndFetch`,
-or an entity `add`) and let dirty tracking or an explicit update flush the change; jOOQ inserts
-with `RETURNING` and stores the changed record; and JDBC and Exposed (DSL) read the generated id
-and inserted values out of the insert result. So the workload is two statements (insert, update),
-with no separate read-back. Every implementation runs in an explicit transaction, and the
-inserted rows are removed in the untimed teardown between iterations, like `batchInsert`.
+obtain what identifies the inserted row, then update its description, all inside one
+transaction. This is the shape of a create-then-amend endpoint, and each library obtains the
+just-inserted row its natural way: Hibernate and the entity/DAO libraries (Exposed DAO, Ktorm,
+Jimmer) get the persisted entity back from the insert (a managed instance, a populated draft, or
+an entity `add`) and let dirty tracking or an explicit update flush the change; jOOQ inserts
+with `RETURNING` and stores the changed record; and JDBC, Exposed (DSL) and Storm read the
+generated id out of the insert result — Storm through `insertAndFetchId` — and update by it. So
+the workload is two statements (insert, update), with no separate read-back. The updates differ
+in width: Storm, Hibernate and Jimmer write every column of the visit row, JDBC, jOOQ, Exposed
+(DSL and DAO) and Ktorm write only `description`. That is each library's default write semantics
+here — the `@DynamicUpdate` opt-ins under [Optimizations applied](#optimizations-applied) are
+scoped to the `updateById` entity, which is the workload that measures change detection — and on
+PostgreSQL an UPDATE rewrites the whole tuple either way, so the wider statement costs extra
+parameter binds rather than extra write work. Every implementation runs in an explicit
+transaction, and the inserted rows are removed in the untimed teardown between iterations, like
+`batchInsert`.
 
 ### graphInsert
 
@@ -334,8 +341,9 @@ scripts/run.sh --quick
 BENCH_JDBC_URL=jdbc:postgresql://localhost:5432/bench scripts/run.sh
 ```
 
-Requirements: JDK 21, Docker. Until Storm 1.13.0 is on Maven Central, the build resolves
-Storm from `mavenLocal()`.
+Requirements: JDK 21, Docker. Released Storm versions resolve from Maven Central;
+`mavenLocal()` is consulted first, so a locally installed build of the pinned version wins.
+That is how the `benchmark` workflow benchmarks an unreleased `storm-framework` ref.
 
 ## Publishing
 
@@ -355,6 +363,32 @@ and the fastest fork tell the same story: on the published run, switching betwee
 no leading-group membership in any workload. The rule is applied to every implementation and
 every workload identically, and the raw per-fork data is published alongside each table, so any
 other estimator can be recomputed from the same artifacts.
+
+## Measured precision
+
+The suite has been run twice on equivalent hardware with nothing changed between the executions,
+so the size of a difference worth reporting is measured rather than assumed. The repeat is
+published under [`results/2026-09-03-repeat/`](results/2026-09-03-repeat/) with its own metadata;
+no figure is quoted from it.
+
+Individual scores move by about 1% between the two runs (median absolute change per library 0.6%
+to 1.5%, worst case 6.5%). That is enough to reorder a close group: counting outright wins, Storm
+takes eight of twelve workloads on the published run and six on the repeat, with the winner
+changing on the projection, the update and the create-then-amend. Nothing changed but the run.
+Those three workloads are decided inside 1.3%, so the ordering there records which way the noise
+fell.
+
+What does reproduce is the shape of the field. Sorting each workload by a 3% band around the
+fastest framework gives the identical partition in both runs, with the same workloads in each
+group: five where Storm is alone at the front with nothing within 3%, six where the leaders are
+level, and one that goes to jOOQ. Every workload is either inside 1.3% or clear by more than
+4.0%, and nothing lands between, so the band sits in an empty stretch of the distribution and 2%,
+3% or 4% partition the field identically.
+
+Two consequences follow, and both are applied to every published claim. A difference smaller than
+the band is reported as a shared lead rather than a ranking, because naming a winner inside it
+records noise. And a claim derived from one run is checked against the other before it is
+published, so a figure that turns on which run shipped does not reach a reader.
 
 ## Known caveats
 
