@@ -1,5 +1,5 @@
 [versions]
-storm = "1.14.0"
+storm = "1.14.1"
 kotlin = "2.4.10"
 ksp = "2.3.11"
 jmh = "1.37"

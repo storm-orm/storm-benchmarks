@@ -145,8 +145,9 @@ open class StormBenchmark {
     @Benchmark
     fun keyset(): List<Pet> {
         val cursor = params.nextKeysetCursor()
-        // Scroll (keyset) pagination: seek past the cursor, ordered by the key, one page deep.
-        return pets.scroll(Scrollable.of(Pet_.id, cursor, Dataset.PAGE_SIZE)).content
+        // Scroll (keyset) pagination: the request states the key and the page size, the position
+        // seeks past the cursor.
+        return pets.scroll(Scrollable.of(Pet_.id, Dataset.PAGE_SIZE).after(cursor)).content
     }
 
     @Benchmark
