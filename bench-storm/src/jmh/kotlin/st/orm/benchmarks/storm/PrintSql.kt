@@ -82,7 +82,7 @@ fun main() {
     }
 
     show("keyset") {
-        pets.scroll(Scrollable.of(Pet_.id, 100L, Dataset.PAGE_SIZE)).content
+        pets.scroll(Scrollable.of(Pet_.id, Dataset.PAGE_SIZE).after(100L)).content
     }
 
     show("dynamic (city + date + type)") {
