@@ -15,7 +15,8 @@ fairness rules.
 
 | Run | Storm | Runner | Notes |
 |---|---|---|---|
-| [2026-09-03](2026-09-03/) | 1.14.0 (`v1.14.0` @ c128ac47) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04, AMD EPYC 7763 | current. JDBC baseline 140.7 µs/op: a slower instance than the run below, so the two tables are not cell-comparable |
+| [2026-09-13](2026-09-13/) | 1.14.1 (`v1.14.1` @ 15f63804) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04, AMD EPYC 9V74 | current. JDBC baseline 101.9 µs/op: a faster instance and a different CPU model than the run below, so the two tables are not cell-comparable |
+| [2026-09-03](2026-09-03/) | 1.14.0 (`v1.14.0` @ c128ac47) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04, AMD EPYC 7763 | JDBC baseline 140.7 µs/op: a slower instance than the run below, so the two tables are not cell-comparable |
 | [2026-07-25](2026-07-25/) | `main` @ 5556faea (1.13.0) | dedicated 4 vCPU / 16 GB, Ubuntu 24.04 | JDBC baseline 83.6 µs/op. Full table-state discipline (per-trial `VACUUM ANALYZE`, pinned statistics, sampled plan log); see metadata |
 
 ## Reproducibility
